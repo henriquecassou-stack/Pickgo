@@ -33,8 +33,11 @@ function chaveDaCli() {
 
 function perguntar(texto, oculto = false) {
   const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true })
-  if (oculto) rl._writeToOutput = (s) => { if (s.includes(texto)) rl.output.write(s) }
-  return new Promise((ok) => rl.question(texto, (r) => { if (oculto) process.stdout.write('\n'); rl.close(); ok(r.trim()) }))
+  return new Promise((ok) => {
+    rl.question(texto, (r) => { if (oculto) process.stdout.write('\n'); rl.close(); ok(r.trim()) })
+    // a pergunta já foi escrita: daqui em diante nada do que é digitado ou colado aparece
+    if (oculto) rl._writeToOutput = () => {}
+  })
 }
 
 const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
