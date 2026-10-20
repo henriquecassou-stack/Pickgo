@@ -35,14 +35,14 @@ function Inicio() {
 
 // guarda o app no aparelho para abrir sem internet (só no build de produção)
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}))
+  window.addEventListener('load', () => navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {}))
 }
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ProvedorAvisos>
       <ProvedorSessao>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
           <Suspense fallback={<Carregando />}>
             <Routes>
               <Route path="/" element={<Inicio />} />

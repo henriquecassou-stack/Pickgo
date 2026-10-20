@@ -2,10 +2,13 @@
 // internet (por exemplo, se a página for recarregada durante a queda).
 // Os dados (Supabase) sempre vão pela rede; o totem tem a própria cópia
 // do catálogo e da chave PIX para o modo sem internet.
-const VERSAO = 'mercado-autonomo-v1'
+const VERSAO = 'pickgo-v2'
+// pasta onde o app está publicado ("/" local, "/Pickgo/" no GitHub Pages)
+const BASE = new URL('./', self.location).pathname
+const INDEX = BASE + 'index.html'
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSAO).then((c) => c.addAll(['/', '/index.html', '/icone.svg'])))
+  e.waitUntil(caches.open(VERSAO).then((c) => c.addAll([BASE, INDEX, BASE + 'icone.svg'])))
   self.skipWaiting()
 })
 
@@ -25,11 +28,13 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(req)
         .then((r) => {
-          const copia = r.clone()
-          caches.open(VERSAO).then((c) => c.put('/index.html', copia))
+          if (r.ok) {
+            const copia = r.clone()
+            caches.open(VERSAO).then((c) => c.put(INDEX, copia))
+          }
           return r
         })
-        .catch(() => caches.match('/index.html')),
+        .catch(() => caches.match(INDEX)),
     )
     return
   }

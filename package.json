@@ -5,7 +5,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test:sql": "node scripts/testar-sql.mjs"
+    "test:sql": "node scripts/testar-sql.mjs",
+    "publicar": "node scripts/publicar.mjs"
   },
   "type": "module",
   "private": true,

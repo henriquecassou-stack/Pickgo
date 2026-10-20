@@ -6,6 +6,8 @@ import tailwindcss from '@tailwindcss/vite'
 const raiz = searchForWorkspaceRoot(process.cwd())
 
 export default defineConfig({
+  // pasta do site (ex.: /Pickgo/ no GitHub Pages); local fica na raiz
+  base: process.env.BASE_PATH ?? '/',
   plugins: [react(), tailwindcss()],
   // PGlite (modo demonstração) carrega seu próprio WASM
   optimizeDeps: { exclude: ['@electric-sql/pglite'] },
