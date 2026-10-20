@@ -1,0 +1,43 @@
+project_id = "mercado-autonomo"
+
+[api]
+port = 54321
+schemas = ["public", "storage"]
+
+[db]
+port = 54322
+major_version = 15
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[realtime]
+enabled = true
+
+[studio]
+port = 54323
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+# Contas são criadas pelo administrador (scripts/criar-usuarios.mjs); sem cadastro público.
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+
+# O provedor de pagamento chama o webhook sem JWT do Supabase.
+[functions.webhook-pagamento]
+verify_jwt = false
+
+# Chamada pelo pg_cron com o cabeçalho x-cron-secret (ou pelo admin com JWT, validado no código).
+[functions.enviar-avisos]
+verify_jwt = false

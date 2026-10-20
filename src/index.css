@@ -1,0 +1,72 @@
+@import "tailwindcss";
+@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/fredoka";
+
+/* Identidade pickgo: verde-escuro (base), verde-folha (destaque) e creme.
+   A escala "emerald" foi redefinida com as cores da marca, então tudo que
+   já usava emerald no app passa a seguir a marca automaticamente. */
+@theme {
+  --font-sans: "Outfit Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-logo: "Fredoka Variable", "Outfit Variable", ui-sans-serif, sans-serif;
+
+  --color-emerald-50: #f0f5e8;
+  --color-emerald-100: #e3ecd5;
+  --color-emerald-200: #c9dcae;
+  --color-emerald-300: #a9cb86;
+  --color-emerald-400: #8dbd62;
+  --color-emerald-500: #79ad48;
+  --color-emerald-600: #0f402d;
+  --color-emerald-700: #0b3325;
+  --color-emerald-800: #08291d;
+  --color-emerald-900: #07271c;
+  --color-emerald-950: #041710;
+
+  /* neutros claros mais quentes (fundo creme) */
+  --color-slate-50: #fbf5ea;
+  --color-slate-100: #eeeadd;
+
+  /* tokens nomeados da marca */
+  --color-marca: #0f402d;
+  --color-marca-escura: #062a1f;
+  --color-folha: #79ad48;
+  --color-creme: #fdf6eb;
+  --color-cartao: #ebeed9;
+  --color-circulo: #e4edd4;
+  --color-texto-suave: #4f7a62;
+
+  --animate-entrar: entrar 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-pulsar-anel: pulsar-anel 1.8s ease-out infinite;
+
+  @keyframes entrar {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes pulsar-anel {
+    0% { box-shadow: 0 0 0 0 rgb(121 173 72 / 0.45); }
+    100% { box-shadow: 0 0 0 28px rgb(121 173 72 / 0); }
+  }
+}
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply bg-slate-50 text-slate-800 antialiased; }
+  input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
+  :focus-visible { @apply outline-2 outline-offset-2 outline-emerald-500; }
+}
+
+@layer components {
+  .campo {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-xs
+      placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none
+      disabled:bg-slate-100 disabled:text-slate-500;
+  }
+  .tabela { @apply w-full text-left text-sm; }
+  .tabela th { @apply sticky top-0 z-10 bg-slate-50 px-3 py-2.5 text-xs font-semibold tracking-wide text-slate-500 uppercase; }
+  .tabela td { @apply border-t border-slate-100 px-3 py-2.5 align-middle; }
+  .tabela tbody tr { @apply transition-colors hover:bg-slate-50/70; }
+  .num { @apply text-right tabular-nums; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
