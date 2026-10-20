@@ -13,6 +13,7 @@ copyFileSync('dist/index.html', 'dist/404.html')
 writeFileSync('dist/.nojekyll', '')
 
 rodar('git init -q -b gh-pages', 'dist')
+rodar('git config core.longpaths true', 'dist') // Windows: caminhos longos
 rodar('git add -A', 'dist')
 rodar('git -c user.name="pickgo" -c user.email="pickgo@users.noreply.github.com" commit -q -m "Publicar site"', 'dist')
 rodar(`git push -f ${remoto} gh-pages`, 'dist')
