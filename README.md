@@ -6,7 +6,11 @@ Sistema para minimercado de condomínio sem caixa: painel do administrador
 **Stack:** React + TypeScript + Tailwind + Recharts · Supabase (PostgreSQL, Auth,
 Realtime, Storage, Edge Functions) · Mercado Pago (PIX, maquininha Point, Checkout Pro).
 
+**Site de demonstração:** https://henriquecassou-stack.github.io/Pickgo/
+
 ## Testar agora (modo demonstração)
+
+Abra o site acima ou rode no seu computador:
 
 ```bash
 npm install
@@ -17,6 +21,16 @@ Sem `.env.local`, o app abre em **modo demonstração**: a mesma migração e o 
 seed do Supabase rodam dentro do navegador (PGlite) e os pagamentos são simulados.
 Entre como `admin@demo.com` ou `totem@demo.com` (qualquer senha).
 Os dados ficam só naquele navegador; cada aba tem sua cópia.
+
+### Atualizar o site
+
+```bash
+npm run publicar
+```
+
+Gera o build para a pasta `/Pickgo/` e envia para o branch `gh-pages`
+(GitHub Pages). O site publicado é sempre o modo demonstração: os dados
+ficam no navegador de quem acessa.
 
 ## Estrutura
 
