@@ -61,9 +61,11 @@ await esperaErro(`insert into movimentacoes_estoque (produto_id, tipo, motivo, q
 const admin = '00000000-0000-0000-0000-00000000000a'
 const totem = '00000000-0000-0000-0000-00000000000b'
 await db.exec(`insert into auth.users (id, email, raw_app_meta_data) values
-  ('${admin}', 'admin@mercado.local', '{"perfil":"admin"}'), ('${totem}', 'totem@mercado.local', '{}')`)
-const perfis = (await db.query(`select email, perfil from usuarios order by email`)).rows
-ok(perfis[0].perfil === 'admin' && perfis[1].perfil === 'totem', 'perfis criados pelo trigger do auth')
+  ('${admin}', 'admin@mercado.local', '{"perfil":"admin"}'), ('${totem}', 'totem@mercado.local', '{"perfil":"totem"}'),
+  ('00000000-0000-0000-0000-0000000000cc', 'curioso@x.com', '{}')`)
+const perfis = (await db.query(`select email, perfil, ativo from usuarios order by email`)).rows
+ok(perfis[0].perfil === 'admin' && perfis[2].perfil === 'totem' && perfis[0].ativo && perfis[2].ativo, 'perfis criados pelo trigger do auth')
+ok(perfis[1].email === 'curioso@x.com' && perfis[1].ativo === false, 'conta sem perfil (cadastro público) nasce desativada')
 
 await db.exec(`grant usage on schema public to authenticated; grant select, insert, update on all tables in schema public to authenticated;
   grant usage on all sequences in schema public to authenticated; grant usage on schema auth to authenticated;`)
