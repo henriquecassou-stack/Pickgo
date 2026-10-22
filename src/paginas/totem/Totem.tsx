@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import {
-  ArrowLeft, BadgeCheck, Building2, PackagePlus, UserPlus, Camera, ChevronRight, CircleCheck, Delete, IdCard, CircleX, Clock, Copy, CreditCard, Hourglass, House, Loader, Mail, Minus, Plus,
+  ArrowLeft, BadgeCheck, Building2, PackagePlus, UserPlus, Camera, ChevronRight, CircleCheck, Delete, Eye, EyeOff, IdCard, CircleX, Clock, Copy, CreditCard, Hourglass, House, Loader, Mail, Minus, Plus,
   QrCode, ScanBarcode, Search, ShoppingCart, Smartphone, Star, Trash2, UserRound, Wallet, Wifi, WifiOff, X,
 } from 'lucide-react'
 import { useSessao } from '../../lib/sessao'
@@ -161,9 +161,14 @@ export default function Totem() {
     setErro(null)
     setAviso(null)
     setVendaOffline(null)
+    setConfirmarCancelar(false)
     setEtapa('inicio')
     carregarCatalogo()
   }, [carregarCatalogo])
+
+  // cancelar compra: com produtos no carrinho pede confirmação; vazio, volta direto
+  const [confirmarCancelar, setConfirmarCancelar] = useState(false)
+  const pedirCancelamento = () => (carrinho.length ? setConfirmarCancelar(true) : reiniciar())
 
   // volta ao início após 30 s parado (exceto enquanto aguarda o pagamento,
   // que tem a própria expiração de 5 min, e no PIX sem internet, em que o
@@ -398,6 +403,7 @@ export default function Totem() {
               </>
             )}
             <BotaoTopo onClick={() => setCamera(true)} rotulo="Câmera"><Camera /></BotaoTopo>
+            <BotaoTopo onClick={pedirCancelamento} rotulo="Cancelar" perigo><X /></BotaoTopo>
           </header>
 
           <nav className="flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-5 py-3 [scrollbar-width:none]">
@@ -454,7 +460,7 @@ export default function Totem() {
       {etapa === 'pagamento' && (
         <TelaPagamento total={total} qtdItens={qtdItens} carrinho={carrinho} adicionar={adicionar} remover={remover}
           cliente={cliente} apartamento={apartamento} setApartamento={setApartamento}
-          processando={processando} aoVoltar={() => setEtapa('compra')} aoPagar={pagar}
+          processando={processando} aoVoltar={() => setEtapa('compra')} aoPagar={pagar} aoCancelar={pedirCancelamento}
           semInternet={semInternet} pixDisponivel={!!pix} aoPagarSemInternet={pagarSemInternet} />
       )}
 
@@ -492,6 +498,22 @@ export default function Totem() {
         </div>
       )}
 
+      {confirmarCancelar && (etapa === 'compra' || etapa === 'pagamento') && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/60 p-8 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="titulo-cancelar">
+          <div className="w-full max-w-md animate-entrar rounded-3xl bg-white p-8 text-center shadow-2xl">
+            <span className="mx-auto grid size-16 place-items-center rounded-full bg-rose-50 text-rose-600"><ShoppingCart className="size-8" /></span>
+            <p id="titulo-cancelar" className="mt-4 text-3xl font-bold">Cancelar a compra?</p>
+            <p className="mt-2 text-xl text-slate-600">
+              {qtdItens} {qtdItens === 1 ? 'item' : 'itens'} ({brl(total)}) {qtdItens === 1 ? 'sai' : 'saem'} do carrinho e nada é cobrado.
+            </p>
+            <div className="mt-6 grid gap-3">
+              <button onClick={reiniciar} className="h-16 rounded-2xl bg-rose-600 text-xl font-semibold text-white active:bg-rose-700">Sim, cancelar compra</button>
+              <button onClick={() => setConfirmarCancelar(false)} className="h-16 rounded-2xl bg-slate-100 text-xl font-semibold text-slate-800 active:bg-slate-200">Continuar comprando</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {aviso && (
         <div className="fixed inset-x-6 top-6 z-50 flex animate-entrar items-center gap-3 rounded-2xl bg-emerald-600 px-6 py-4 text-lg font-medium text-white shadow-xl" role="status">
           <CircleCheck className="size-6 shrink-0" /> <span className="flex-1">{aviso}</span>
@@ -506,7 +528,7 @@ export default function Totem() {
         </div>
       )}
 
-      <LeitorCamera aberto={camera} aoFechar={() => setCamera(false)} aoLer={aoLerCodigo} />
+      <LeitorCamera aberto={camera} aoFechar={() => setCamera(false)} aoLer={aoLerCodigo} frontal />
     </div>
   )
 }
@@ -626,6 +648,7 @@ function TelaIdentificacao({ aoVoltar, aoIdentificar }: { aoVoltar: () => void; 
   const [apto, setApto] = useState('')
   const [pin, setPin] = useState('')
   const [campo, setCampo] = useState<'apto' | 'pin'>('apto')
+  const [verPin, setVerPin] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
@@ -664,7 +687,8 @@ function TelaIdentificacao({ aoVoltar, aoIdentificar }: { aoVoltar: () => void; 
 
         <div className="mt-8 grid grid-cols-2 gap-4">
           <CampoTeclado rotulo="Apartamento" valor={apto} ativo={campo === 'apto'} onClick={() => setCampo('apto')} />
-          <CampoTeclado rotulo="PIN" valor={'•'.repeat(pin.length)} ativo={campo === 'pin'} onClick={() => apto && setCampo('pin')} />
+          <CampoTeclado rotulo="PIN" valor={verPin ? pin : '•'.repeat(pin.length)} ativo={campo === 'pin'} onClick={() => apto && setCampo('pin')}
+            acao={<BotaoVerPin visivel={verPin} alternar={() => setVerPin(!verPin)} />} />
         </div>
         <p className={cx('mt-3 min-h-7 text-center text-lg', erro ? 'font-medium text-rose-600' : 'invisible')} role="alert">{erro ?? '.'}</p>
 
@@ -734,6 +758,7 @@ function TelaCpf({ subtitulo, aoVoltar, aoConfirmar }: { subtitulo: string; aoVo
 function TelaCadastro({ aoVoltar, aoConcluir }: { aoVoltar: () => void; aoConcluir: (m: MoradorIdentificado) => void }) {
   const { api } = useSessao()
   const [f, setF] = useState({ nome: '', cpf: '', apartamento: '', bloco: '', email: '', pin: '', pin2: '', aceite: false })
+  const [verPin, setVerPin] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const set = (k: keyof typeof f, limpar?: (v: string) => string) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -799,11 +824,15 @@ function TelaCadastro({ aoVoltar, aoConcluir }: { aoVoltar: () => void; aoConclu
           </label>
           <div className="grid grid-cols-2 gap-4">
             <label className={rotulo}>Crie um PIN
-              <input className={cx(campo, 'tracking-[0.4em] placeholder:text-xl placeholder:tracking-normal')} value={f.pin} onChange={set('pin', soNumeros)} type="password" inputMode="numeric" autoComplete="new-password" placeholder="4 a 6 números" />
+              <input className={cx(campo, 'tracking-[0.4em] placeholder:text-xl placeholder:tracking-normal')} value={f.pin} onChange={set('pin', soNumeros)} type={verPin ? 'text' : 'password'} inputMode="numeric" autoComplete="new-password" placeholder="4 a 6 números" />
             </label>
             <label className={rotulo}>Repita o PIN
-              <input className={cx(campo, 'tracking-[0.4em] placeholder:text-xl placeholder:tracking-normal')} value={f.pin2} onChange={set('pin2', soNumeros)} type="password" inputMode="numeric" autoComplete="new-password" />
+              <input className={cx(campo, 'tracking-[0.4em] placeholder:text-xl placeholder:tracking-normal')} value={f.pin2} onChange={set('pin2', soNumeros)} type={verPin ? 'text' : 'password'} inputMode="numeric" autoComplete="new-password" />
             </label>
+            <button type="button" onClick={() => setVerPin(!verPin)} aria-pressed={verPin}
+              className="col-span-2 -mt-2 flex items-center gap-2 justify-self-start rounded-xl px-2 py-2 text-lg text-slate-600 active:bg-slate-100">
+              {verPin ? <EyeOff className="size-6" /> : <Eye className="size-6" />} {verPin ? 'Esconder PIN' : 'Mostrar PIN'}
+            </button>
           </div>
           <label className="flex cursor-pointer items-start gap-4 rounded-2xl bg-white p-5 ring-1 ring-slate-200">
             <input type="checkbox" checked={f.aceite} onChange={(e) => { setErro(null); setF((x) => ({ ...x, aceite: e.target.checked })) }}
@@ -825,11 +854,24 @@ function TelaCadastro({ aoVoltar, aoConcluir }: { aoVoltar: () => void; aoConclu
   )
 }
 
-function CampoTeclado({ rotulo, valor, ativo, onClick }: { rotulo: string; valor: string; ativo: boolean; onClick: () => void }) {
+function CampoTeclado({ rotulo, valor, ativo, onClick, acao }: { rotulo: string; valor: string; ativo: boolean; onClick: () => void; acao?: React.ReactNode }) {
   return (
-    <button onClick={onClick} className={cx('rounded-2xl border-2 bg-white px-5 py-3 text-left transition', ativo ? 'border-emerald-500 ring-4 ring-emerald-100' : 'border-slate-200')}>
-      <span className="block text-base text-slate-500">{rotulo}</span>
-      <span className="block h-10 text-3xl font-bold tracking-widest tabular-nums">{valor || <span className="text-slate-300">—</span>}</span>
+    <div className="relative">
+      <button onClick={onClick} className={cx('w-full rounded-2xl border-2 bg-white px-5 py-3 text-left transition', !!acao && 'pr-16', ativo ? 'border-emerald-500 ring-4 ring-emerald-100' : 'border-slate-200')}>
+        <span className="block text-base text-slate-500">{rotulo}</span>
+        <span className="block h-10 text-3xl font-bold tracking-widest tabular-nums">{valor || <span className="text-slate-300">—</span>}</span>
+      </button>
+      {acao && <div className="absolute inset-y-0 right-2 flex items-center">{acao}</div>}
+    </div>
+  )
+}
+
+/** Botão de olho para mostrar/esconder o PIN */
+function BotaoVerPin({ visivel, alternar }: { visivel: boolean; alternar: () => void }) {
+  return (
+    <button type="button" onClick={alternar} aria-label={visivel ? 'Esconder PIN' : 'Mostrar PIN'} aria-pressed={visivel}
+      className="grid size-12 place-items-center rounded-xl text-slate-500 active:bg-slate-100">
+      {visivel ? <EyeOff className="size-7" /> : <Eye className="size-7" />}
     </button>
   )
 }
@@ -908,10 +950,10 @@ function PainelCarrinho({ carrinho, total, qtdItens, adicionar, remover, aoPagar
   )
 }
 
-function TelaPagamento({ total, qtdItens, carrinho, adicionar, remover, cliente, apartamento, setApartamento, processando, aoVoltar, aoPagar, semInternet, pixDisponivel, aoPagarSemInternet }: {
+function TelaPagamento({ total, qtdItens, carrinho, adicionar, remover, cliente, apartamento, setApartamento, processando, aoVoltar, aoPagar, aoCancelar, semInternet, pixDisponivel, aoPagarSemInternet }: {
   total: number; qtdItens: number; carrinho: ItemCarrinho[]; adicionar: (p: ItemCatalogo, n: number) => void; remover: (p: ItemCatalogo) => void
   cliente: Cliente | null; apartamento: string; setApartamento: (v: string) => void
-  processando: MetodoPagamento | null; aoVoltar: () => void; aoPagar: (m: MetodoPagamento) => void
+  processando: MetodoPagamento | null; aoVoltar: () => void; aoPagar: (m: MetodoPagamento) => void; aoCancelar: () => void
   semInternet: boolean; pixDisponivel: boolean; aoPagarSemInternet: () => void
 }) {
   const opcoes: { m: MetodoPagamento; t: string; d: string; i: React.ReactNode; cor: string }[] = [
@@ -921,7 +963,13 @@ function TelaPagamento({ total, qtdItens, carrinho, adicionar, remover, cliente,
   ]
   return (
     <div className="flex flex-1 flex-col overflow-y-auto px-6 py-6">
-      <button onClick={aoVoltar} className="mb-6 flex items-center gap-2 self-start rounded-xl py-2 text-xl text-slate-600"><ArrowLeft className="size-7" /> Voltar ao carrinho</button>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <button onClick={aoVoltar} className="flex items-center gap-2 rounded-xl py-2 text-xl text-slate-600"><ArrowLeft className="size-7" /> Voltar ao carrinho</button>
+        <button onClick={aoCancelar} disabled={!!processando}
+          className="flex h-14 items-center gap-2 rounded-2xl bg-rose-50 px-5 text-lg font-medium text-rose-700 ring-1 ring-rose-200 active:bg-rose-100 disabled:opacity-40">
+          <X className="size-6" /> Cancelar compra
+        </button>
+      </div>
       <div className="rounded-3xl bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-2xl font-bold">Confira sua compra</h2>
@@ -1374,9 +1422,10 @@ function TelaFalha({ pagamento, aoTentarDeNovo, aoDesistir }: { pagamento: Pagam
   )
 }
 
-function BotaoTopo({ onClick, rotulo, children }: { onClick: () => void; rotulo: string; children: React.ReactNode }) {
+function BotaoTopo({ onClick, rotulo, perigo, children }: { onClick: () => void; rotulo: string; perigo?: boolean; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} className="flex h-14 items-center gap-2 rounded-2xl bg-slate-100 px-5 text-lg font-medium text-slate-700 active:bg-slate-200 [&>svg]:size-6">
+    <button onClick={onClick} aria-label={rotulo} className={cx('flex h-14 items-center gap-2 rounded-2xl px-5 text-lg font-medium [&>svg]:size-6',
+      perigo ? 'bg-rose-50 text-rose-700 ring-1 ring-rose-200 active:bg-rose-100' : 'bg-slate-100 text-slate-700 active:bg-slate-200')}>
       {children} <span className="hidden sm:inline">{rotulo}</span>
     </button>
   )
