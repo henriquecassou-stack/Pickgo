@@ -190,6 +190,10 @@ export default function Totem() {
       setTimeout(() => setFlash((f) => (f === p.id ? null : f)), 600)
     }
   }, [])
+  const remover = useCallback((p: ItemCatalogo) => setCarrinho((c) => c.filter((i) => i.produto.id !== p.id)), [])
+
+  // se o cliente tirar tudo na tela de pagamento, volta para escolher produtos
+  useEffect(() => { if (etapa === 'pagamento' && carrinho.length === 0) setEtapa('compra') }, [etapa, carrinho.length])
 
   const aoLerCodigo = useCallback((codigo: string) => {
     setCamera(false)
@@ -410,32 +414,46 @@ export default function Totem() {
               {visiveis.map((p) => {
                 const noCarrinho = carrinho.find((i) => i.produto.id === p.id)?.qtd ?? 0
                 return (
-                  <button key={p.id} onClick={() => adicionar(p)}
-                    className={cx('relative flex flex-col overflow-hidden rounded-3xl border-2 bg-white text-left shadow-sm transition active:scale-[0.97]',
-                      noCarrinho ? 'border-emerald-500' : 'border-transparent', flash === p.id && 'ring-4 ring-emerald-300')}>
-                    <FotoProduto url={p.foto_url} nome={p.nome} icone={p.categoria_icone} cor={p.categoria_cor} className="aspect-[4/3] w-full rounded-none [&>span]:rounded-none" />
-                    <div className="flex flex-1 flex-col p-4">
-                      <p className="line-clamp-2 text-lg leading-snug font-semibold">{p.nome}</p>
-                      <div className="mt-auto flex items-center justify-between pt-3">
-                        <span className="text-2xl font-bold text-emerald-700 tabular-nums">{brl(p.preco_venda)}</span>
-                        <span className="grid size-11 place-items-center rounded-full bg-emerald-600 text-white"><Plus className="size-6" /></span>
+                  <div key={p.id} className={cx('relative flex flex-col overflow-hidden rounded-3xl border-2 bg-white shadow-sm transition',
+                    noCarrinho ? 'border-emerald-500' : 'border-transparent', flash === p.id && 'ring-4 ring-emerald-300')}>
+                    <button onClick={() => adicionar(p)} className="flex flex-1 flex-col text-left transition active:scale-[0.97]" aria-label={`Adicionar ${p.nome}`}>
+                      <FotoProduto url={p.foto_url} nome={p.nome} icone={p.categoria_icone} cor={p.categoria_cor} className="aspect-[4/3] w-full rounded-none [&>span]:rounded-none" />
+                      <div className="flex flex-1 flex-col p-4 pb-0">
+                        <p className="line-clamp-2 text-lg leading-snug font-semibold">{p.nome}</p>
+                        <span className="mt-auto pt-2 text-2xl font-bold text-emerald-700 tabular-nums">{brl(p.preco_venda)}</span>
                       </div>
+                    </button>
+                    {/* fora do botão do card: tirar e pôr ficam a um toque, direto no produto */}
+                    <div className="flex items-center justify-end gap-2 p-4 pt-3">
+                      {noCarrinho > 0 ? (
+                        <>
+                          <button onClick={() => adicionar(p, -1)} aria-label={noCarrinho === 1 ? `Tirar ${p.nome}` : `Diminuir ${p.nome}`}
+                            className="grid size-12 place-items-center rounded-full bg-rose-50 text-rose-600 ring-2 ring-rose-200 transition active:scale-90">
+                            {noCarrinho === 1 ? <Trash2 className="size-5" /> : <Minus className="size-6" />}
+                          </button>
+                          <span className="w-9 text-center text-2xl font-bold tabular-nums">{noCarrinho}</span>
+                        </>
+                      ) : null}
+                      <button onClick={() => adicionar(p)} aria-label={`Adicionar ${p.nome}`}
+                        className="grid size-12 place-items-center rounded-full bg-emerald-600 text-white transition active:scale-90">
+                        <Plus className="size-6" />
+                      </button>
                     </div>
-                    {noCarrinho > 0 && <span className="absolute top-3 right-3 grid size-10 place-items-center rounded-full bg-emerald-600 text-lg font-bold text-white shadow">{noCarrinho}</span>}
-                  </button>
+                  </div>
                 )
               })}
             </div>
             {visiveis.length === 0 && <p className="py-20 text-center text-xl text-slate-500">Nenhum produto encontrado.</p>}
           </main>
 
-          <PainelCarrinho carrinho={carrinho} total={total} qtdItens={qtdItens} adicionar={adicionar}
+          <PainelCarrinho carrinho={carrinho} total={total} qtdItens={qtdItens} adicionar={adicionar} remover={remover}
             aoPagar={() => setEtapa('pagamento')} aoLimpar={() => setCarrinho([])} />
         </>
       )}
 
       {etapa === 'pagamento' && (
-        <TelaPagamento total={total} qtdItens={qtdItens} carrinho={carrinho} cliente={cliente} apartamento={apartamento} setApartamento={setApartamento}
+        <TelaPagamento total={total} qtdItens={qtdItens} carrinho={carrinho} adicionar={adicionar} remover={remover}
+          cliente={cliente} apartamento={apartamento} setApartamento={setApartamento}
           processando={processando} aoVoltar={() => setEtapa('compra')} aoPagar={pagar}
           semInternet={semInternet} pixDisponivel={!!pix} aoPagarSemInternet={pagarSemInternet} />
       )}
@@ -824,8 +842,38 @@ function Tecla({ onClick, rotulo, children }: { onClick: () => void; rotulo?: st
   )
 }
 
-function PainelCarrinho({ carrinho, total, qtdItens, adicionar, aoPagar, aoLimpar }: {
-  carrinho: ItemCarrinho[]; total: number; qtdItens: number; adicionar: (p: ItemCatalogo, n: number) => void; aoPagar: () => void; aoLimpar: () => void
+/** Lista dos produtos escolhidos, com quantidade editável e botão para tirar o item */
+function ListaItens({ carrinho, adicionar, remover, desabilitado }: {
+  carrinho: ItemCarrinho[]; adicionar: (p: ItemCatalogo, n: number) => void; remover: (p: ItemCatalogo) => void; desabilitado?: boolean
+}) {
+  return (
+    <ul className="divide-y divide-slate-100">
+      {carrinho.map(({ produto: p, qtd }) => (
+        <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+          <FotoProduto url={p.foto_url} nome={p.nome} icone={p.categoria_icone} cor={p.categoria_cor} className="size-14" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-lg font-medium">{p.nome}</p>
+            <p className="text-slate-500 tabular-nums">{brl(p.preco_venda)} un.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <BotaoQtd onClick={() => adicionar(p, -1)} rotulo="Diminuir" desabilitado={desabilitado || qtd === 1}><Minus /></BotaoQtd>
+            <span className="w-8 text-center text-2xl font-bold tabular-nums">{qtd}</span>
+            <BotaoQtd onClick={() => adicionar(p, 1)} rotulo="Aumentar" desabilitado={desabilitado}><Plus /></BotaoQtd>
+          </div>
+          <span className="w-28 text-right text-xl font-semibold tabular-nums">{brl(p.preco_venda * qtd)}</span>
+          <button onClick={() => remover(p)} disabled={desabilitado} aria-label={`Tirar ${p.nome}`}
+            className="flex h-12 items-center gap-1.5 rounded-xl bg-rose-50 px-3 text-base font-medium text-rose-600 ring-1 ring-rose-200 transition active:scale-95 disabled:opacity-40">
+            <Trash2 className="size-5" /> Tirar
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function PainelCarrinho({ carrinho, total, qtdItens, adicionar, remover, aoPagar, aoLimpar }: {
+  carrinho: ItemCarrinho[]; total: number; qtdItens: number; adicionar: (p: ItemCatalogo, n: number) => void; remover: (p: ItemCatalogo) => void
+  aoPagar: () => void; aoLimpar: () => void
 }) {
   const [expandido, setExpandido] = useState(false)
   useEffect(() => { if (carrinho.length === 0) setExpandido(false) }, [carrinho.length])
@@ -837,23 +885,7 @@ function PainelCarrinho({ carrinho, total, qtdItens, adicionar, aoPagar, aoLimpa
             <h2 className="text-2xl font-bold">Seu carrinho</h2>
             <button onClick={aoLimpar} className="flex items-center gap-2 rounded-xl px-3 py-2 text-lg text-rose-600"><Trash2 className="size-5" /> Esvaziar</button>
           </div>
-          <ul className="divide-y divide-slate-100">
-            {carrinho.map(({ produto: p, qtd }) => (
-              <li key={p.id} className="flex items-center gap-4 py-3">
-                <FotoProduto url={p.foto_url} nome={p.nome} icone={p.categoria_icone} cor={p.categoria_cor} className="size-14" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-lg font-medium">{p.nome}</p>
-                  <p className="text-slate-500 tabular-nums">{brl(p.preco_venda)} un.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <BotaoQtd onClick={() => adicionar(p, -1)} rotulo="Diminuir">{qtd === 1 ? <Trash2 className="size-5 text-rose-600" /> : <Minus />}</BotaoQtd>
-                  <span className="w-8 text-center text-2xl font-bold tabular-nums">{qtd}</span>
-                  <BotaoQtd onClick={() => adicionar(p, 1)} rotulo="Aumentar"><Plus /></BotaoQtd>
-                </div>
-                <span className="w-28 text-right text-xl font-semibold tabular-nums">{brl(p.preco_venda * qtd)}</span>
-              </li>
-            ))}
-          </ul>
+          <ListaItens carrinho={carrinho} adicionar={adicionar} remover={remover} />
         </div>
       )}
       <div className="flex items-center gap-4 px-5 py-4">
@@ -876,8 +908,9 @@ function PainelCarrinho({ carrinho, total, qtdItens, adicionar, aoPagar, aoLimpa
   )
 }
 
-function TelaPagamento({ total, qtdItens, carrinho, cliente, apartamento, setApartamento, processando, aoVoltar, aoPagar, semInternet, pixDisponivel, aoPagarSemInternet }: {
-  total: number; qtdItens: number; carrinho: ItemCarrinho[]; cliente: Cliente | null; apartamento: string; setApartamento: (v: string) => void
+function TelaPagamento({ total, qtdItens, carrinho, adicionar, remover, cliente, apartamento, setApartamento, processando, aoVoltar, aoPagar, semInternet, pixDisponivel, aoPagarSemInternet }: {
+  total: number; qtdItens: number; carrinho: ItemCarrinho[]; adicionar: (p: ItemCatalogo, n: number) => void; remover: (p: ItemCatalogo) => void
+  cliente: Cliente | null; apartamento: string; setApartamento: (v: string) => void
   processando: MetodoPagamento | null; aoVoltar: () => void; aoPagar: (m: MetodoPagamento) => void
   semInternet: boolean; pixDisponivel: boolean; aoPagarSemInternet: () => void
 }) {
@@ -890,8 +923,20 @@ function TelaPagamento({ total, qtdItens, carrinho, cliente, apartamento, setApa
     <div className="flex flex-1 flex-col overflow-y-auto px-6 py-6">
       <button onClick={aoVoltar} className="mb-6 flex items-center gap-2 self-start rounded-xl py-2 text-xl text-slate-600"><ArrowLeft className="size-7" /> Voltar ao carrinho</button>
       <div className="rounded-3xl bg-white p-6 shadow-sm">
-        <p className="text-xl text-slate-500">{qtdItens} {qtdItens === 1 ? 'item' : 'itens'} · {carrinho.map((i) => i.produto.nome).slice(0, 3).join(', ')}{carrinho.length > 3 ? '…' : ''}</p>
-        <p className="mt-1 text-6xl font-extrabold tabular-nums">{brl(total)}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-2xl font-bold">Confira sua compra</h2>
+          <button onClick={aoVoltar} disabled={!!processando}
+            className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-lg font-medium text-emerald-800 ring-1 ring-emerald-200 disabled:opacity-40">
+            <Plus className="size-5" /> Adicionar mais
+          </button>
+        </div>
+        <div className="mt-2">
+          <ListaItens carrinho={carrinho} adicionar={adicionar} remover={remover} desabilitado={!!processando} />
+        </div>
+        <div className="mt-2 flex items-end justify-between border-t border-slate-200 pt-4">
+          <span className="text-xl text-slate-500">Total · {qtdItens} {qtdItens === 1 ? 'item' : 'itens'}</span>
+          <span className="text-5xl font-extrabold tabular-nums">{brl(total)}</span>
+        </div>
       </div>
 
       {/* visitante não informa apartamento; morador cadastrado já vem identificado */}
@@ -1348,9 +1393,10 @@ function Chip({ ativo, onClick, children }: { ativo: boolean; onClick: () => voi
   )
 }
 
-function BotaoQtd({ onClick, rotulo, children }: { onClick: () => void; rotulo: string; children: React.ReactNode }) {
+function BotaoQtd({ onClick, rotulo, desabilitado, children }: { onClick: () => void; rotulo: string; desabilitado?: boolean; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} aria-label={rotulo} className="grid size-12 place-items-center rounded-xl bg-slate-100 active:bg-slate-200 [&>svg]:size-6">
+    <button onClick={onClick} aria-label={rotulo} disabled={desabilitado}
+      className="grid size-12 place-items-center rounded-xl bg-slate-100 active:bg-slate-200 disabled:opacity-35 [&>svg]:size-6">
       {children}
     </button>
   )
