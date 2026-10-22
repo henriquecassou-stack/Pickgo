@@ -176,27 +176,16 @@ na tela para os urgentes) e na tela **Avisos**:
 Avisos de estoque e validade **se resolvem sozinhos** quando a situação é corrigida
 (reposição, saída do vencido, produto desativado) e não se repetem enquanto estão abertos.
 
-**Envio por e-mail:** configure o e-mail em **Avisos → Receber por e-mail** e agende a Edge Function (SQL Editor do Supabase, com `pg_cron` e `pg_net` ativos):
+**Envio por e-mail:** configure o e-mail em **Avisos → Receber por e-mail**, ligue o envio
+(`node scripts/configurar-email.mjs`, veja Comprovante) e agende a Edge Function:
 
-```sql
--- urgentes/atenção assim que surgirem (a cada 10 min)
-select cron.schedule('avisos-pendentes', '*/10 * * * *', $
-  select net.http_post(
-    url := 'https://SEU_PROJETO.supabase.co/functions/v1/enviar-avisos',
-    headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', 'SEU_AVISOS_CRON_SECRET'),
-    body := '{"modo":"pendentes"}'::jsonb)
-$);
--- resumo diário às 8h de Brasília (11h UTC)
-select cron.schedule('avisos-resumo', '0 11 * * *', $
-  select net.http_post(
-    url := 'https://SEU_PROJETO.supabase.co/functions/v1/enviar-avisos',
-    headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', 'SEU_AVISOS_CRON_SECRET'),
-    body := '{"modo":"resumo"}'::jsonb)
-$);
+```bash
+node scripts/agendar-avisos.mjs
 ```
 
-A verificação diária de validade (`verificar_avisos()`) é agendada pela própria migração
-quando o `pg_cron` está ativo, e também roda sempre que o painel é aberto.
+O script ativa `pg_cron` e `pg_net`, guarda o segredo do cron no Vault do Supabase e agenda:
+avisos urgentes/atenção a cada 10 min, resumo diário às 8h e a varredura de validade às 6h
+(horário de Brasília). A varredura também roda sempre que o painel é aberto.
 
 ## Sem internet no mercado
 
