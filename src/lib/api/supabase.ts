@@ -8,6 +8,11 @@ import { ehErroDeRede } from '../offline'
 export function criarApiSupabase(url: string, chaveAnon: string): Api {
   const sb = createClient(url, chaveAnon, { auth: { persistSession: true, autoRefreshToken: true } })
 
+  // cada assinatura ganha um canal próprio: o Supabase devolve o canal já aberto
+  // quando o nome se repete (ex.: sino + página de Avisos) e aí .on() dá erro
+  let seqCanal = 0
+  const canal = (nome: string) => sb.channel(`${nome}-${++seqCanal}`)
+
   const ok = <T>(r: { data: T | null; error: PostgrestError | null }): T => {
     if (r.error) throw new Error(traduzirErro(r.error.message))
     return r.data as T
@@ -178,8 +183,7 @@ export function criarApiSupabase(url: string, chaveAnon: string): Api {
           cb(p)
         }
       }
-      const canal = sb
-        .channel(`pagamento-${id}`)
+      const assinatura = canal(`pagamento-${id}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos', filter: `id=eq.${id}` }, (ev) => emitir(ev.new as Pagamento))
         .subscribe()
       // rede de segurança caso o realtime caia: consulta a cada 4 s
@@ -189,7 +193,7 @@ export function criarApiSupabase(url: string, chaveAnon: string): Api {
       }, 4000)
       return () => {
         clearInterval(timer)
-        sb.removeChannel(canal)
+        sb.removeChannel(assinatura)
       }
     },
     async cancelarPagamento(id, motivo) {
@@ -272,21 +276,19 @@ export function criarApiSupabase(url: string, chaveAnon: string): Api {
       await funcao('enviar-avisos', { modo: 'teste' })
     },
     aoNovoAviso(cb) {
-      const canal = sb
-        .channel('avisos-painel')
+      const assinatura = canal('avisos-painel')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'avisos' }, () => cb())
         .subscribe()
       return () => {
-        sb.removeChannel(canal)
+        sb.removeChannel(assinatura)
       }
     },
     aoNovaVenda(cb) {
-      const canal = sb
-        .channel('vendas-painel')
+      const assinatura = canal('vendas-painel')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'vendas', filter: 'status=eq.paga' }, () => cb())
         .subscribe()
       return () => {
-        sb.removeChannel(canal)
+        sb.removeChannel(assinatura)
       }
     },
   }
