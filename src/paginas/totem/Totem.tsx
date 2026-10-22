@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   ArrowLeft, BadgeCheck, Building2, PackagePlus, UserPlus, Camera, ChevronRight, CircleCheck, Delete, Eye, EyeOff, IdCard, CircleX, Clock, Copy, CreditCard, Hourglass, House, Loader, Mail, Minus, Plus,
-  QrCode, ScanBarcode, Search, ShoppingCart, Smartphone, Star, Trash2, UserRound, Wallet, Wifi, WifiOff, X,
+  QrCode, ScanBarcode, Search, ShoppingCart, Smartphone, Star, Trash2, UserRound, Wallet, WalletCards, Wifi, WifiOff, X,
 } from 'lucide-react'
 import { useSessao } from '../../lib/sessao'
 import type { ClienteVenda, ItemCatalogo, MetodoPagamento, MoradorIdentificado, Pagamento, PixTotem, ResultadoCriarPagamento, TipoCliente, VendaOffline } from '../../lib/tipos'
@@ -889,23 +889,24 @@ function ListaItens({ carrinho, adicionar, remover, desabilitado }: {
   carrinho: ItemCarrinho[]; adicionar: (p: ItemCatalogo, n: number) => void; remover: (p: ItemCatalogo) => void; desabilitado?: boolean
 }) {
   return (
-    <ul className="divide-y divide-slate-100">
+    // @container: em espaço estreito (tela de pagamento deitada) o "Tirar" vira só o ícone
+    <ul className="@container divide-y divide-slate-100">
       {carrinho.map(({ produto: p, qtd }) => (
-        <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
-          <FotoProduto url={p.foto_url} nome={p.nome} icone={p.categoria_icone} cor={p.categoria_cor} className="size-14" />
+        <li key={p.id} className="flex items-center gap-x-3 py-3 @xl:gap-x-4">
+          <FotoProduto url={p.foto_url} nome={p.nome} icone={p.categoria_icone} cor={p.categoria_cor} className="size-12 shrink-0 @xl:size-14" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-lg font-medium">{p.nome}</p>
+            <p className="line-clamp-2 text-lg leading-snug font-medium">{p.nome}</p>
             <p className="text-slate-500 tabular-nums">{brl(p.preco_venda)} un.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             <BotaoQtd onClick={() => adicionar(p, -1)} rotulo="Diminuir" desabilitado={desabilitado || qtd === 1}><Minus /></BotaoQtd>
-            <span className="w-8 text-center text-2xl font-bold tabular-nums">{qtd}</span>
+            <span className="w-7 text-center text-2xl font-bold tabular-nums">{qtd}</span>
             <BotaoQtd onClick={() => adicionar(p, 1)} rotulo="Aumentar" desabilitado={desabilitado}><Plus /></BotaoQtd>
           </div>
-          <span className="w-28 text-right text-xl font-semibold tabular-nums">{brl(p.preco_venda * qtd)}</span>
+          <span className="w-24 shrink-0 text-right text-xl font-semibold tabular-nums">{brl(p.preco_venda * qtd)}</span>
           <button onClick={() => remover(p)} disabled={desabilitado} aria-label={`Tirar ${p.nome}`}
-            className="flex h-12 items-center gap-1.5 rounded-xl bg-rose-50 px-3 text-base font-medium text-rose-600 ring-1 ring-rose-200 transition active:scale-95 disabled:opacity-40">
-            <Trash2 className="size-5" /> Tirar
+            className="flex h-12 shrink-0 items-center gap-1.5 rounded-xl bg-rose-50 px-3 text-base font-medium text-rose-600 ring-1 ring-rose-200 transition active:scale-95 disabled:opacity-40">
+            <Trash2 className="size-5" /> <span className="hidden @xl:inline">Tirar</span>
           </button>
         </li>
       ))}
@@ -957,10 +958,13 @@ function TelaPagamento({ total, qtdItens, carrinho, adicionar, remover, cliente,
   semInternet: boolean; pixDisponivel: boolean; aoPagarSemInternet: () => void
 }) {
   const opcoes: { m: MetodoPagamento; t: string; d: string; i: React.ReactNode; cor: string }[] = [
-    { m: 'pix', t: 'PIX', d: 'Aponte a câmera do celular para o QR Code', i: <QrCode className="size-12" />, cor: 'bg-marca text-white shadow-lg shadow-marca/25' },
-    { m: 'cartao_debito', t: 'Débito', d: 'Cartão de débito', i: <CreditCard className="size-12" />, cor: 'border-[3px] border-emerald-300 bg-white text-marca-escura' },
-    { m: 'cartao_credito', t: 'Crédito', d: 'Cartão de crédito à vista', i: <CreditCard className="size-12" />, cor: 'border-[3px] border-emerald-300 bg-white text-marca-escura' },
+    { m: 'pix', t: 'PIX', d: 'QR Code no celular', i: <QrCode className="size-11" />, cor: 'bg-marca text-white shadow-lg shadow-marca/25' },
+    { m: 'cartao_debito', t: 'Débito', d: 'Cartão de débito', i: <CreditCard className="size-11" />, cor: 'border-[3px] border-emerald-300 bg-white text-marca-escura' },
+    { m: 'cartao_credito', t: 'Crédito', d: 'Crédito à vista', i: <WalletCards className="size-11" />, cor: 'border-[3px] border-emerald-300 bg-white text-marca-escura' },
   ]
+  // botão: em pé os três ficam lado a lado (ícone em cima); deitado ficam na coluna da direita
+  const botao = 'flex min-h-36 flex-col items-center justify-center gap-2 rounded-3xl px-3 text-center transition active:scale-[0.98] disabled:opacity-60 '
+    + 'lg:min-h-28 lg:flex-row lg:justify-start lg:gap-5 lg:px-6 lg:text-left'
   return (
     <div className="flex flex-1 flex-col overflow-y-auto px-6 py-6">
       <div className="mb-6 flex items-center justify-between gap-3">
@@ -970,6 +974,8 @@ function TelaPagamento({ total, qtdItens, carrinho, adicionar, remover, cliente,
           <X className="size-6" /> Cancelar compra
         </button>
       </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      <div>
       <div className="rounded-3xl bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-2xl font-bold">Confira sua compra</h2>
@@ -1003,8 +1009,11 @@ function TelaPagamento({ total, qtdItens, carrinho, adicionar, remover, cliente,
             className="mt-2 h-16 w-full rounded-2xl border-2 border-slate-200 bg-white px-5 text-2xl outline-none focus:border-emerald-500" />
         </label>
       )}
+      </div>
 
-      <h2 className="mt-8 mb-4 text-2xl font-bold">Como você quer pagar?</h2>
+      {/* formas de pagamento: deitado ficam fixas na direita, sempre à vista */}
+      <div className="lg:sticky lg:top-0">
+      <h2 className="mb-4 text-2xl font-bold">Como você quer pagar?</h2>
       {semInternet ? (
         pixDisponivel ? (
           <div className="grid gap-4">
@@ -1026,19 +1035,20 @@ function TelaPagamento({ total, qtdItens, carrinho, adicionar, remover, cliente,
           </p>
         )
       ) : (
-      <div className="grid gap-4">
+      <div className="grid grid-cols-3 gap-4 lg:grid-cols-1">
         {opcoes.map((o) => (
-          <button key={o.m} onClick={() => aoPagar(o.m)} disabled={!!processando}
-            className={cx('flex min-h-28 items-center gap-6 rounded-3xl px-8 text-left transition active:scale-[0.98] disabled:opacity-60', o.cor)}>
-            {processando === o.m ? <Loader className="size-12 animate-spin" /> : o.i}
+          <button key={o.m} onClick={() => aoPagar(o.m)} disabled={!!processando} className={cx(botao, o.cor)}>
+            <span className="shrink-0">{processando === o.m ? <Loader className="size-11 animate-spin" /> : o.i}</span>
             <span>
               <span className="block text-3xl font-bold">{o.t}</span>
-              <span className="block text-lg opacity-85">{o.d}</span>
+              <span className="block text-base opacity-85 lg:text-lg">{o.d}</span>
             </span>
           </button>
         ))}
       </div>
       )}
+      </div>
+      </div>
     </div>
   )
 }
