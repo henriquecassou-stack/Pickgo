@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ArrowDownToLine, Bell, LayoutDashboard, LogOut, Menu, Package, Receipt, Star, Store, Tags, Users, WifiOff, X } from 'lucide-react'
+import { ArrowDownToLine, Bell, LayoutDashboard, LogOut, Menu, Package, Receipt, Star, Store, Tags, TicketPercent, Users, WifiOff, X } from 'lucide-react'
 import { useSessao } from '../../lib/sessao'
 import { cx } from '../../componentes/ui'
 import { ProvedorAvisosAdmin, SinoAvisos, useAvisosAdmin } from '../../componentes/Avisos'
@@ -10,6 +10,7 @@ import { estaSimulandoOffline, simularOffline } from '../../lib/conexao'
 const MENU = [
   { para: '/admin', rotulo: 'Dashboard', icone: LayoutDashboard, fim: true },
   { para: '/admin/produtos', rotulo: 'Produtos', icone: Package },
+  { para: '/admin/promocoes', rotulo: 'Promoções', icone: TicketPercent },
   { para: '/admin/movimentacoes', rotulo: 'Movimentações', icone: ArrowDownToLine },
   { para: '/admin/vendas', rotulo: 'Vendas', icone: Receipt },
   { para: '/admin/moradores', rotulo: 'Moradores', icone: Users },

@@ -76,6 +76,16 @@ export function criarApiSupabase(url: string, chaveAnon: string): Api {
     async salvarCategoria({ id, ...c }) {
       ok(id ? await sb.from('categorias').update(c).eq('id', id) : await sb.from('categorias').insert(c))
     },
+    async listarPromocoes() {
+      return ok(await sb.from('promocoes_detalhadas').select('*').order('criado_em', { ascending: false }))
+    },
+    async salvarPromocao({ id, ...p }) {
+      const dados = { ...p, titulo: p.titulo?.trim() || null, fim: p.fim || null, atualizado_em: new Date().toISOString() }
+      ok(id ? await sb.from('promocoes').update(dados).eq('id', id) : await sb.from('promocoes').insert(dados))
+    },
+    async alterarPromocaoAtiva(id, ativa) {
+      ok(await sb.from('promocoes').update({ ativa, atualizado_em: new Date().toISOString() }).eq('id', id))
+    },
     async listarFornecedores() {
       return ok(await sb.from('fornecedores').select('*').order('nome'))
     },
@@ -300,6 +310,8 @@ const GRUPOS_AVISO = { estoque: ['estoque_baixo', 'estoque_zerado', 'validade_pr
 export function traduzirErro(msg: string) {
   if (msg.includes('duplicate key') && msg.includes('codigo_barras')) return 'Já existe um produto com este código de barras.'
   if (msg.includes('duplicate key') && msg.includes('categorias')) return 'Já existe uma categoria com este nome.'
+  if (msg.includes('promocao_percentual')) return 'O desconto deve ser menor que 100%.'
+  if (msg.includes('promocao_periodo')) return 'A data de fim não pode ser antes do início.'
   if (msg.includes('row-level security') || msg.includes('permission denied')) return 'Você não tem permissão para esta ação.'
   return msg
 }

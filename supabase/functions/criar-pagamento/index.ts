@@ -52,11 +52,19 @@ Deno.serve(async (req) => {
     return erro('Algum produto do carrinho não está mais disponível', 409)
   }
 
+  // promoção vigente (mesma view do catálogo do totem): cobra o preço com desconto
+  const { data: promocoes, error: errPromo } = await db
+    .from('promocoes_vigentes')
+    .select('produto_id, preco_promocional')
+    .in('produto_id', [...qtd.keys()])
+  if (errPromo) return erro(errPromo.message, 500)
+  const promo = new Map((promocoes ?? []).map((x) => [x.produto_id as string, Number(x.preco_promocional)]))
+
   const itens = produtos.map((p) => ({
     produto_id: p.id,
     nome_produto: p.nome,
     quantidade: qtd.get(p.id)!,
-    preco_unitario: Number(p.preco_venda),
+    preco_unitario: promo.get(p.id) ?? Number(p.preco_venda),
     custo_unitario: Number(p.preco_custo),
   }))
   const centavos = (v: number) => Math.round(v * 100)

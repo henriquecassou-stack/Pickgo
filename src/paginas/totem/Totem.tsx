@@ -425,10 +425,19 @@ export default function Totem() {
                     <button onClick={() => adicionar(p)} className="flex flex-1 flex-col text-left transition active:scale-[0.97]" aria-label={`Adicionar ${p.nome}`}>
                       <FotoProduto url={p.foto_url} nome={p.nome} icone={p.categoria_icone} cor={p.categoria_cor} className="aspect-[4/3] w-full rounded-none [&>span]:rounded-none" />
                       <div className="flex flex-1 flex-col p-4 pb-0">
+                        {emPromocao(p) && p.promocao !== 'Promoção' && <p className="mb-0.5 truncate text-sm font-semibold text-rose-600">{p.promocao}</p>}
                         <p className="line-clamp-2 text-lg leading-snug font-semibold">{p.nome}</p>
-                        <span className="mt-auto pt-2 text-2xl font-bold text-emerald-700 tabular-nums">{brl(p.preco_venda)}</span>
+                        <div className="mt-auto pt-2 leading-tight">
+                          {emPromocao(p) && <span className="block text-base text-slate-400 line-through tabular-nums">{brl(p.preco_original)}</span>}
+                          <span className={cx('text-2xl font-bold tabular-nums', emPromocao(p) ? 'text-rose-600' : 'text-emerald-700')}>{brl(p.preco_venda)}</span>
+                        </div>
                       </div>
                     </button>
+                    {emPromocao(p) && (
+                      <span className="pointer-events-none absolute top-3 left-3 rounded-full bg-rose-600 px-3 py-1 text-base font-bold text-white shadow">
+                        −{Math.round((1 - p.preco_venda / p.preco_original) * 100)}%
+                      </span>
+                    )}
                     {/* fora do botão do card: tirar e pôr ficam a um toque, direto no produto */}
                     <div className="flex items-center justify-end gap-2 p-4 pt-3">
                       {noCarrinho > 0 ? (
@@ -534,6 +543,9 @@ export default function Totem() {
 }
 
 // ---------------------------------------------------------------------------
+
+/** produto com promoção vigente (catálogo antigo guardado sem preco_original conta como sem promoção) */
+const emPromocao = (p: ItemCatalogo) => !!p.promocao && p.preco_original > p.preco_venda
 
 function TelaInicio({ aoMorador, aoVisitante, segurarLogo, demo, semInternet, aoAlternarInternet }: {
   aoMorador: () => void; aoVisitante: () => void; segurarLogo: object; demo: boolean; semInternet: boolean; aoAlternarInternet: () => void
@@ -896,7 +908,10 @@ function ListaItens({ carrinho, adicionar, remover, desabilitado }: {
           <FotoProduto url={p.foto_url} nome={p.nome} icone={p.categoria_icone} cor={p.categoria_cor} className="size-12 shrink-0 @xl:size-14" />
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 text-lg leading-snug font-medium">{p.nome}</p>
-            <p className="text-slate-500 tabular-nums">{brl(p.preco_venda)} un.</p>
+            <p className="text-slate-500 tabular-nums">
+              {emPromocao(p) && <span className="mr-1.5 text-slate-400 line-through">{brl(p.preco_original)}</span>}
+              <span className={cx(emPromocao(p) && 'font-medium text-rose-600')}>{brl(p.preco_venda)}</span> un.
+            </p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <BotaoQtd onClick={() => adicionar(p, -1)} rotulo="Diminuir" desabilitado={desabilitado || qtd === 1}><Minus /></BotaoQtd>
@@ -962,6 +977,7 @@ function TelaPagamento({ total, qtdItens, carrinho, adicionar, remover, cliente,
     { m: 'cartao_debito', t: 'Débito', d: 'Cartão de débito', i: <CreditCard className="size-11" />, cor: 'border-[3px] border-emerald-300 bg-white text-marca-escura' },
     { m: 'cartao_credito', t: 'Crédito', d: 'Crédito à vista', i: <WalletCards className="size-11" />, cor: 'border-[3px] border-emerald-300 bg-white text-marca-escura' },
   ]
+  const economia = carrinho.reduce((s, i) => s + (emPromocao(i.produto) ? Math.round((i.produto.preco_original - i.produto.preco_venda) * 100) * i.qtd : 0), 0) / 100
   // botão: em pé os três ficam lado a lado (ícone em cima); deitado ficam na coluna da direita
   const botao = 'flex min-h-36 flex-col items-center justify-center gap-2 rounded-3xl px-3 text-center transition active:scale-[0.98] disabled:opacity-60 '
     + 'lg:min-h-28 lg:flex-row lg:justify-start lg:gap-5 lg:px-6 lg:text-left'
@@ -991,6 +1007,9 @@ function TelaPagamento({ total, qtdItens, carrinho, adicionar, remover, cliente,
           <span className="text-xl text-slate-500">Total · {qtdItens} {qtdItens === 1 ? 'item' : 'itens'}</span>
           <span className="text-5xl font-extrabold tabular-nums">{brl(total)}</span>
         </div>
+        {economia > 0 && (
+          <p className="mt-2 text-right text-lg font-medium text-rose-600">Você economiza {brl(economia)} com promoções</p>
+        )}
       </div>
 
       {/* visitante não informa apartamento; morador cadastrado já vem identificado */}

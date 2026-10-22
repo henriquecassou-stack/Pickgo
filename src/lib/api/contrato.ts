@@ -3,7 +3,7 @@ import type {
   Aviso, ConfigAvisos, FiltroAvisos,
   Avaliacao, FiltroAvaliacoes, ResumoAvaliacoes, SugestaoProduto, ClienteVenda, FaturamentoCliente, Morador, MoradorEditavel, MoradorIdentificado, NovoCadastroTotem,
   Agrupamento, Categoria, FaturamentoCategoria, FaturamentoMetodo, FiltroMovimentacoes, FiltroVendas, Fornecedor,
-  ItemCatalogo, MetodoPagamento, Movimentacao, NovaMovimentacao, Pagamento, PontoSerie, Produto, ProdutoEditavel,
+  ItemCatalogo, MetodoPagamento, Movimentacao, NovaMovimentacao, Pagamento, PontoSerie, Produto, ProdutoEditavel, Promocao, PromocaoEditavel,
   ResultadoCriarPagamento, ResumoDashboard, TopProduto, Usuario, Venda,
 } from '../tipos'
 
@@ -31,6 +31,12 @@ export interface Api {
   listarProdutos(): Promise<Produto[]>
   salvarProduto(p: ProdutoEditavel): Promise<string>
   enviarFoto(arquivo: File): Promise<string>
+
+  // promoções
+  listarPromocoes(): Promise<Promocao[]>
+  salvarPromocao(p: PromocaoEditavel): Promise<void>
+  /** liga (reativa) ou desliga (encerra) uma promoção */
+  alterarPromocaoAtiva(id: number, ativa: boolean): Promise<void>
 
   // estoque
   listarMovimentacoes(f: FiltroMovimentacoes): Promise<Movimentacao[]>

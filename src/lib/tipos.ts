@@ -217,7 +217,33 @@ export interface ItemCatalogo {
   categoria_icone: string | null
   categoria_cor: string | null
   categoria_ordem: number | null
+  /** preço sem promoção (igual a preco_venda quando não há promoção) */
+  preco_original: number
+  /** título da promoção vigente, ou null */
+  promocao: string | null
 }
+
+export type TipoPromocao = 'percentual' | 'preco_fixo'
+export type SituacaoPromocao = 'ativa' | 'agendada' | 'encerrada'
+
+export interface Promocao {
+  id: number
+  produto_id: string
+  produto_nome: string
+  titulo: string | null
+  tipo: TipoPromocao
+  /** % de desconto ou preço promocional, conforme o tipo */
+  valor: number
+  /** aaaa-mm-dd */
+  inicio: string
+  fim: string | null
+  ativa: boolean
+  preco_normal: number
+  preco_promocional: number
+  situacao: SituacaoPromocao
+}
+
+export type PromocaoEditavel = Pick<Promocao, 'produto_id' | 'titulo' | 'tipo' | 'valor' | 'inicio' | 'fim'> & { id?: number }
 
 export interface Pagamento {
   id: string

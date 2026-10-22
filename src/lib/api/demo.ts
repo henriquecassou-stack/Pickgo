@@ -192,6 +192,15 @@ export function criarApiDemo(aoProgresso?: (msg: string) => void): Api {
       if (c.id) await exec(`update categorias set nome=$2, icone=$3, cor=$4, ordem=$5, ativo=$6 where id=$1`, [c.id, c.nome, c.icone, c.cor, c.ordem ?? 0, c.ativo ?? true])
       else await exec(`insert into categorias (nome, icone, cor, ordem) values ($1, $2, $3, $4)`, [c.nome, c.icone ?? 'package', c.cor ?? '#64748b', c.ordem ?? 0])
     },
+    listarPromocoes: () => linhas(`select * from promocoes_detalhadas order by criado_em desc`),
+    async salvarPromocao(p) {
+      const v = [p.produto_id, p.titulo?.trim() || null, p.tipo, p.valor, p.inicio, p.fim || null]
+      if (p.id) await exec(`update promocoes set produto_id=$2, titulo=$3, tipo=$4, valor=$5, inicio=$6, fim=$7, atualizado_em=now() where id=$1`, [p.id, ...v])
+      else await exec(`insert into promocoes (produto_id, titulo, tipo, valor, inicio, fim) values ($1, $2, $3, $4, $5, $6)`, v)
+    },
+    async alterarPromocaoAtiva(id, ativa) {
+      await exec(`update promocoes set ativa=$2, atualizado_em=now() where id=$1`, [id, ativa])
+    },
     listarFornecedores: () => linhas(`select * from fornecedores order by nome`),
     async salvarFornecedor(f) {
       const v = [f.nome, f.cnpj ?? null, f.telefone ?? null, f.email ?? null, f.contato ?? null, f.ativo ?? true]
@@ -290,7 +299,10 @@ export function criarApiDemo(aoProgresso?: (msg: string) => void): Api {
         await tx.query(`select expirar_pagamentos_vencidos()`)
         const ids = itens.map((i) => i.produto_id)
         const prods = (await tx.query<{ id: string; nome: string; preco_venda: number; preco_custo: number }>(
-          `select id, nome, preco_venda, preco_custo from produtos where ativo and id = any($1::uuid[])`, [ids])).rows
+          // mesma regra da Edge Function: com promoção vigente, cobra o preço promocional
+          `select p.id, p.nome, coalesce(v.preco_promocional, p.preco_venda)::float as preco_venda, p.preco_custo
+             from produtos p left join promocoes_vigentes v on v.produto_id = p.id
+            where p.ativo and p.id = any($1::uuid[])`, [ids])).rows
         if (prods.length !== new Set(ids).size) throw new Error('Algum produto do carrinho não está mais disponível')
         const qtd = (id: string) => itens.filter((i) => i.produto_id === id).reduce((s, i) => s + i.quantidade, 0)
         const total = prods.reduce((s, p) => s + Math.round(p.preco_venda * 100) * qtd(p.id), 0) / 100

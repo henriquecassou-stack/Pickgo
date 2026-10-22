@@ -187,6 +187,14 @@ O script ativa `pg_cron` e `pg_net`, guarda o segredo do cron no Vault do Supaba
 avisos urgentes/atenção a cada 10 min, resumo diário às 8h e a varredura de validade às 6h
 (horário de Brasília). A varredura também roda sempre que o painel é aberto.
 
+## Promoções
+
+No painel, **Promoções** cria desconto em % ou preço promocional para um produto, com data de
+início e (opcional) de fim. O totem mostra o selo "−X%", o preço antigo riscado e o novo, e na
+conferência "Você economiza R$ …". O desconto vale na cobrança: a Edge Function `criar-pagamento`
+e o catálogo do totem usam a mesma view `promocoes_vigentes` (com duas promoções no mesmo produto,
+vale a de menor preço). Encerrar uma promoção volta o preço normal na hora.
+
 ## Sem internet no mercado
 
 Se a internet do estabelecimento cair, o totem **continua vendendo**:

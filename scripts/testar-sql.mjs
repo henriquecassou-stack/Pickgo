@@ -243,6 +243,43 @@ await como(admin, async () => {
   ok(vis.com > 0, `vendas de visitante e morador sem cadastro do seed com CPF (${vis.com} de ${vis.total})`)
 }
 
+// --- promoções ---
+{
+  const preco = async (nome) => (await um(`select preco_venda::float p, preco_original::float o, promocao from catalogo_totem where nome = $1`, [nome]))
+  const prod = async (nome) => (await um(`select id, preco_venda::float p from produtos where nome = $1`, [nome]))
+  const agua = await prod('Água mineral 500 ml')
+  const choco = await prod('Chocolate ao leite 90 g')
+  const cafe = await prod('Café torrado 500 g')
+  await como(admin, async () => {
+    await db.query(`insert into promocoes (produto_id, titulo, tipo, valor) values ($1, 'Calor', 'percentual', 20)`, [agua.id])
+    await db.query(`insert into promocoes (produto_id, tipo, valor) values ($1, 'preco_fixo', 6.99)`, [choco.id])
+    await db.query(`insert into promocoes (produto_id, tipo, valor) values ($1, 'percentual', 10)`, [choco.id])
+    await db.query(`insert into promocoes (produto_id, tipo, valor, inicio, fim) values ($1, 'percentual', 50, current_date - 10, current_date - 1)`, [cafe.id])
+    await db.query(`insert into promocoes (produto_id, tipo, valor, inicio) values ($1, 'percentual', 50, current_date + 3)`, [cafe.id])
+  })
+  await como(totem, async () => {
+    const a = await preco('Água mineral 500 ml')
+    ok(a.p === Math.round(agua.p * 80) / 100 && a.o === agua.p && a.promocao === 'Calor', `promoção de 20% no catálogo do totem (R$ ${a.o} → R$ ${a.p})`)
+    const c = await preco('Chocolate ao leite 90 g')
+    ok(c.p === Math.min(6.99, Math.round(choco.p * 90) / 100) && c.promocao === 'Promoção', `duas promoções no mesmo produto: vale a de menor preço (R$ ${c.p})`)
+    const f = await preco('Café torrado 500 g')
+    ok(f.p === cafe.p && f.promocao === null, 'promoção vencida ou agendada não muda o preço')
+    ok((await um(`select count(*)::int n from promocoes`)).n === 0, 'totem não enxerga a tabela de promoções')
+    await esperaErro(`insert into promocoes (produto_id, tipo, valor) values ('${agua.id}', 'percentual', 90)`, 'row-level security', 'totem não cria promoção')
+  })
+  await como(admin, async () => {
+    await esperaErro(`insert into promocoes (produto_id, tipo, valor) values ('${agua.id}', 'percentual', 100)`, 'promocao_percentual', 'desconto de 100% ou mais é recusado')
+    await esperaErro(`insert into promocoes (produto_id, tipo, valor, inicio, fim) values ('${agua.id}', 'percentual', 5, current_date, current_date - 1)`, 'promocao_periodo', 'fim antes do início é recusado')
+    const s = await um(`select count(*) filter (where situacao = 'ativa')::int ativas, count(*) filter (where situacao = 'agendada')::int agendadas, count(*) filter (where situacao = 'encerrada')::int encerradas from promocoes_detalhadas`)
+    ok(s.ativas === 3 && s.agendadas === 1 && s.encerradas === 1, `situação das promoções no painel (${s.ativas} ativas, ${s.agendadas} agendada, ${s.encerradas} encerrada)`)
+    ok((await um(`select preco_com_promocao(5.00, 'preco_fixo', 9.00)::float p`)).p === 5, 'preço promocional nunca fica acima do preço normal')
+    await db.query(`update promocoes set ativa = false where produto_id = $1`, [agua.id])
+  })
+  await como(totem, async () => {
+    ok((await preco('Água mineral 500 ml')).p === agua.p, 'encerrar a promoção volta o preço normal')
+  })
+}
+
 // --- fluxo de pagamento (como o backend faria) ---
 const venda = await um(`insert into vendas (metodo, total, custo_total, totem_id) values ('pix', 11.00, 5.20, '${totem}') returning id`)
 await db.exec(`insert into itens_venda (venda_id, produto_id, nome_produto, quantidade, preco_unitario, custo_unitario)

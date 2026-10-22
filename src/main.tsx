@@ -10,6 +10,7 @@ import LayoutAdmin from './paginas/admin/LayoutAdmin'
 
 const Dashboard = lazy(() => import('./paginas/admin/Dashboard'))
 const Produtos = lazy(() => import('./paginas/admin/Produtos'))
+const Promocoes = lazy(() => import('./paginas/admin/Promocoes'))
 const HistoricoProduto = lazy(() => import('./paginas/admin/HistoricoProduto'))
 const Movimentacoes = lazy(() => import('./paginas/admin/Movimentacoes'))
 const Vendas = lazy(() => import('./paginas/admin/Vendas'))
@@ -52,6 +53,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route index element={<Dashboard />} />
                 <Route path="produtos" element={<Produtos />} />
                 <Route path="produtos/:id" element={<HistoricoProduto />} />
+                <Route path="promocoes" element={<Promocoes />} />
                 <Route path="movimentacoes" element={<Movimentacoes />} />
                 <Route path="vendas" element={<Vendas />} />
                 <Route path="moradores" element={<Moradores />} />
