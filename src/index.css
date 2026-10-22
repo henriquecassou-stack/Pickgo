@@ -85,6 +85,27 @@
   /* onda do toque (criada por src/lib/animacoes.ts) */
   .onda-camada { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
   .onda { position: absolute; border-radius: 9999px; background: currentColor; animation: var(--animate-onda); }
+
+  /* carrinho andando (componente CarrinhoAnimado) */
+  .carrinho-anda { overflow: visible; }
+  .carrinho-anda .carrinho-corpo { animation: carrinho-sacolejo 0.46s ease-in-out infinite; }
+  .carrinho-anda .carrinho-vento path { animation: carrinho-vento 0.9s linear infinite; }
+  .carrinho-anda .carrinho-vento path + path { animation-delay: -0.45s; }
+  .carrinho-anda .carrinho-estrada { animation: carrinho-estrada 0.5s linear infinite; }
+}
+
+@keyframes carrinho-sacolejo {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes carrinho-vento {
+  0% { transform: translateX(16px); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateX(-26px); opacity: 0; }
+}
+/* tracejado correndo para a esquerda = carrinho indo para a direita */
+@keyframes carrinho-estrada {
+  to { stroke-dashoffset: 28; }
 }
 
 @layer components {
@@ -101,5 +122,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  /* iteration-count 1: animações infinitas (carrinho andando) ficam paradas em vez de piscar */
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }

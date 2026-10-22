@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { CircleCheck, CircleX, Loader, X } from 'lucide-react'
+import { CarrinhoAnimado } from './Logo'
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 export { cx }
@@ -99,8 +100,9 @@ export function Cartao({ children, className }: { children: ReactNode; className
 
 export function Carregando({ texto = 'Carregando…' }: { texto?: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
-      <Loader className="size-4 animate-spin" /> {texto}
+    <div className="flex flex-col items-center justify-center gap-3 py-16 text-sm text-slate-500" role="status">
+      <CarrinhoAnimado className="h-12 w-auto text-marca-escura" rotulo={texto} />
+      {texto}
     </div>
   )
 }

@@ -2,7 +2,8 @@
 // "go" verde-folha, com o "o" em forma de pino de localização.
 // Geometria do carrinho medida na arte de referência (proporções 188 × 122).
 // Escala pelo font-size (classe text-*) do elemento.
-import { cx } from './ui'
+// sem importar de ./ui: ui.tsx usa o CarrinhoAnimado (evita import circular)
+const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
 const ESCURO = '#062a1f'
 const FOLHA = '#79ad48'
@@ -21,6 +22,29 @@ export function SimboloPickgo({ className, cor = ESCURO }: { className?: string;
       {/* rodas */}
       <circle cx="112.5" cy="121.5" r="15" fill={cor} />
       <circle cx="165" cy="121.5" r="15" fill={cor} />
+    </svg>
+  )
+}
+
+/**
+ * Carrinho "andando" para estados de carregamento: o corpo sacode na suspensão,
+ * as linhas de velocidade passam e a estrada corre embaixo (CSS em index.css).
+ * O corpo usa currentColor: em botão escuro fica branco, em fundo claro fica verde-escuro.
+ */
+export function CarrinhoAnimado({ className, rotulo = 'Carregando' }: { className?: string; rotulo?: string }) {
+  return (
+    <svg viewBox="0 8 200 146" className={cx('carrinho-anda', className)} role="img" aria-label={rotulo}>
+      <g className="carrinho-vento">
+        <path d="M17 52 H64" stroke={FOLHA} strokeWidth="16" strokeLinecap="round" />
+        <path d="M48 81 H72" stroke={FOLHA} strokeWidth="18" strokeLinecap="round" />
+      </g>
+      <g className="carrinho-corpo">
+        <path d="M122 40 H178 L168 86" fill="none" stroke={FOLHA} strokeWidth="17" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M54 24 H90 L104 90 H168" fill="none" stroke="currentColor" strokeWidth="19" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+      <circle cx="112.5" cy="121.5" r="15" fill="currentColor" />
+      <circle cx="165" cy="121.5" r="15" fill="currentColor" />
+      <path className="carrinho-estrada" d="M84 147 H196" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeDasharray="16 12" opacity="0.35" />
     </svg>
   )
 }

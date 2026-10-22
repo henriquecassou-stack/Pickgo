@@ -15,7 +15,7 @@ import { brl, dataHoraBR, ROTULO_METODO } from '../../lib/formato'
 import { cx } from '../../componentes/ui'
 import { FotoProduto, IconeCategoria } from '../../componentes/IconeCategoria'
 import { LeitorCamera, useLeitorUSB } from '../../componentes/LeitorCodigo'
-import { LogoPickgo, SimboloPickgo } from '../../componentes/Logo'
+import { CarrinhoAnimado, LogoPickgo, SimboloPickgo } from '../../componentes/Logo'
 
 type Etapa = 'inicio' | 'cliente' | 'identificacao' | 'cadastro' | 'compra' | 'pagamento' | 'aguardando' | 'aprovado' | 'falha'
   | 'pix_offline' | 'offline_ok' | 'cpf_visitante' | 'cpf_morador'
@@ -711,7 +711,7 @@ function TelaIdentificacao({ aoVoltar, aoIdentificar }: { aoVoltar: () => void; 
           <Tecla onClick={() => tecla('0')}>0</Tecla>
           <button onClick={confirmar} disabled={enviando || !valor}
             className="flex h-20 items-center justify-center rounded-2xl bg-emerald-600 text-xl font-bold text-white disabled:bg-slate-300">
-            {enviando ? <Loader className="size-7 animate-spin" /> : campo === 'apto' ? 'Próximo' : 'Entrar'}
+            {enviando ? <CarrinhoAnimado className="h-8 w-auto" rotulo="Entrando" /> : campo === 'apto' ? 'Próximo' : 'Entrar'}
           </button>
         </div>
         <p className="mt-6 text-center text-base text-slate-500">Esqueceu o PIN ou ainda não tem cadastro? Fale com a administração do condomínio.</p>
@@ -860,7 +860,7 @@ function TelaCadastro({ aoVoltar, aoConcluir }: { aoVoltar: () => void; aoConclu
         <p className={cx('mt-4 min-h-7 text-center text-lg font-medium text-rose-600', !erro && 'invisible')} role="alert">{erro ?? '.'}</p>
         <button type="submit" disabled={enviando}
           className="mt-2 flex h-20 w-full items-center justify-center gap-3 rounded-3xl bg-emerald-600 text-2xl font-bold text-white shadow-lg shadow-emerald-600/30 disabled:opacity-60">
-          {enviando && <Loader className="size-7 animate-spin" />} Concluir cadastro e comprar
+          {enviando && <CarrinhoAnimado className="h-8 w-auto" rotulo="Salvando cadastro" />} Concluir cadastro e comprar
         </button>
       </form>
     </div>
@@ -1058,7 +1058,7 @@ function TelaPagamento({ total, qtdItens, carrinho, adicionar, remover, cliente,
       <div className="grid grid-cols-3 gap-4 lg:grid-cols-1">
         {opcoes.map((o) => (
           <button key={o.m} onClick={() => aoPagar(o.m)} disabled={!!processando} className={cx(botao, o.cor)}>
-            <span className="shrink-0">{processando === o.m ? <Loader className="size-11 animate-spin" /> : o.i}</span>
+            <span className="shrink-0">{processando === o.m ? <CarrinhoAnimado className="h-11 w-auto" rotulo="Preparando o pagamento" /> : o.i}</span>
             <span>
               <span className="block text-3xl font-bold">{o.t}</span>
               <span className="block text-base opacity-85 lg:text-lg">{o.d}</span>
@@ -1293,7 +1293,7 @@ function TelaAprovado({ compra, pagamento, itens, cliente, apartamento, ocioso, 
       {envio ? (
         <div className="mt-6 w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-sm">
           {estadoEnvio === 'enviando' && !destino ? (
-            <p className="flex items-center justify-center gap-2 py-4 text-xl text-slate-600"><Loader className="size-6 animate-spin" /> Enviando…</p>
+            <p className="flex items-center justify-center gap-2 py-4 text-xl text-slate-600"><CarrinhoAnimado className="h-7 w-auto text-marca-escura" rotulo="Enviando" /> Enviando…</p>
           ) : estadoEnvio === 'ok' ? (
             <p className="flex items-center justify-center gap-2 py-4 text-xl font-semibold text-emerald-700">
               <CircleCheck className="size-6" /> {api.modo === 'demo' ? 'Envio simulado (modo demonstração)' : 'Comprovante enviado!'}

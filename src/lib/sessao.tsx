@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { aoProgressoDemo, obterApi, type Api } from './api'
 import type { Usuario } from './tipos'
+import { CarrinhoAnimado } from '../componentes/Logo'
 
 interface Sessao {
   api: Api
@@ -57,8 +58,8 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
     return (
       <div className="grid min-h-dvh place-items-center">
         <div className="flex flex-col items-center gap-3 text-slate-500">
-          <div className="size-10 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
-          <p className="text-sm">{progresso}</p>
+          <CarrinhoAnimado className="h-20 w-auto text-marca-escura" rotulo={progresso} />
+          <p className="text-sm" role="status">{progresso}</p>
         </div>
       </div>
     )
