@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Info } from 'lucide-react'
+import { Eye, EyeOff, Info } from 'lucide-react'
 import { LogoPickgo } from '../componentes/Logo'
 import { useSessao } from '../lib/sessao'
 import { Botao, Rotulo } from '../componentes/ui'
@@ -11,6 +11,7 @@ export default function Login() {
   const local = useLocation()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
+  const [verSenha, setVerSenha] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
@@ -21,7 +22,8 @@ export default function Login() {
     setErro(null)
     setEnviando(true)
     try {
-      const u = await entrar(email, senha)
+      // teclado do iPad/celular costuma pôr espaço no fim e maiúscula no início do e-mail
+      const u = await entrar(email.trim().toLowerCase(), senha)
       const de = (local.state as { de?: string } | null)?.de
       navegar(de && (u.perfil === 'admin' || de === '/totem') ? de : u.perfil === 'totem' ? '/totem' : '/admin', { replace: true })
     } catch (e) {
@@ -45,10 +47,18 @@ export default function Login() {
 
         <form onSubmit={enviar} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <Rotulo texto="E-mail">
-            <input className="campo" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="campo" type="email" inputMode="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+              required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Rotulo>
           <Rotulo texto="Senha">
-            <input className="campo" type="password" autoComplete="current-password" required value={senha} onChange={(e) => setSenha(e.target.value)} />
+            <div className="relative">
+              <input className="campo pr-11" type={verSenha ? 'text' : 'password'} autoComplete="current-password" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                required value={senha} onChange={(e) => setSenha(e.target.value)} />
+              <button type="button" onClick={() => setVerSenha(!verSenha)} aria-label={verSenha ? 'Esconder senha' : 'Mostrar senha'}
+                className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-400 hover:text-slate-700">
+                {verSenha ? <EyeOff className="size-4.5" /> : <Eye className="size-4.5" />}
+              </button>
+            </div>
           </Rotulo>
           {erro && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{erro}</p>}
           <Botao type="submit" carregando={enviando} className="w-full">Entrar</Botao>
