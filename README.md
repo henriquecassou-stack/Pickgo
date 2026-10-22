@@ -125,7 +125,10 @@ As chaves ficam **só** nos segredos das Edge Functions; o navegador nunca as v�
 
 ## Comprovante
 
-- **E-mail:** `RESEND_API_KEY` e `EMAIL_FROM` (domínio verificado no Resend).
+- **E-mail:** pelo **Brevo** (envia de um e-mail verificado, pode ser Gmail, sem domínio próprio):
+  rode `node scripts/configurar-email.mjs` e cole a chave de API (`xkeysib-…`). Ou use o Resend
+  com `RESEND_API_KEY` e `EMAIL_FROM` de um domínio verificado. As Edge Functions não usam SMTP
+  (portas 25/587 bloqueadas), só API HTTPS.
 
 ## Totem
 

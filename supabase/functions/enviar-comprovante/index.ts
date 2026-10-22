@@ -1,8 +1,8 @@
-// Envia o comprovante da compra por e-mail (Resend).
+// Envia o comprovante da compra por e-mail (Brevo ou Resend, veja _shared/mensageria.ts).
 // O e-mail digitado no totem é usado só para este envio e não é guardado;
 // sem e-mail digitado, usa o do cadastro do morador.
 import { brl, clienteServico, cors, erro, json, usuarioDaRequisicao } from '../_shared/comum.ts'
-import { enviarEmail } from '../_shared/mensageria.ts'
+import { emailConfigurado, enviarEmail } from '../_shared/mensageria.ts'
 
 const fmtData = (iso: string) =>
   new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })
@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
   const destino: string | undefined = destinoDigitado || cadastro?.email || undefined
   if (!destino) return erro('Informe o e-mail para o comprovante')
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destino)) return erro('E-mail inválido')
-  if (!Deno.env.get('RESEND_API_KEY')) return erro('Envio por e-mail não configurado', 501)
+  if (!emailConfigurado()) return erro('Envio por e-mail não configurado', 501)
 
   const itens = venda.itens_venda as Item[]
   const texto = [
