@@ -6,6 +6,7 @@ import { ProvedorSessao, useSessao } from './lib/sessao'
 import { Carregando, ProvedorAvisos } from './componentes/ui'
 import type { Perfil } from './lib/tipos'
 import { instalarAnimacoesDeToque } from './lib/animacoes'
+import { Abertura } from './componentes/Abertura'
 import Login from './paginas/Login'
 import LayoutAdmin from './paginas/admin/LayoutAdmin'
 
@@ -44,6 +45,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <Abertura>
     <ProvedorAvisos>
       <ProvedorSessao>
         <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
@@ -71,5 +73,6 @@ createRoot(document.getElementById('root')!).render(
         </BrowserRouter>
       </ProvedorSessao>
     </ProvedorAvisos>
+    </Abertura>
   </StrictMode>,
 )
