@@ -59,11 +59,13 @@ Deno.serve(async (req) => {
     if (!avisos.length) return json({ enviados: 0, motivo: 'Nada a relatar' })
   } else {
     if (!cfg.enviar_imediato) return json({ enviados: 0, motivo: 'Envio imediato desligado' })
-    const { data } = await db.from('avisos').select('*')
+    // "reserva" os avisos marcando enviado_em antes de enviar: se o gatilho imediato e o
+    // cron rodarem juntos, cada aviso sai uma vez só (o UPDATE trava a linha)
+    const { data } = await db.from('avisos').update({ enviado_em: new Date().toISOString() })
       .is('enviado_em', null).eq('resolvido', false).in('gravidade', cfg.niveis_imediato)
       .gte('criado_em', new Date(Date.now() - 24 * 3600_000).toISOString())
-      .order('criado_em').limit(30)
-    avisos = data ?? []
+      .select('*')
+    avisos = ((data ?? []) as Aviso[]).sort((a, b) => a.criado_em.localeCompare(b.criado_em)).slice(0, 30)
     if (!avisos.length) return json({ enviados: 0 })
     titulo = avisos.length === 1 ? avisos[0].titulo : `${avisos.length} novos avisos`
   }
@@ -72,11 +74,10 @@ Deno.serve(async (req) => {
   try {
     await enviarEmail(cfg.email, `pickgo — ${titulo}`, html, texto)
   } catch (e) {
+    // falhou: devolve os avisos para a fila, o próximo ciclo tenta de novo
+    if (modo === 'pendentes') await db.from('avisos').update({ enviado_em: null }).in('id', avisos.map((a) => a.id))
     return erro(`Falha no envio do e-mail — ${(e as Error).message}`, 502)
   }
 
-  if (modo === 'pendentes') {
-    await db.from('avisos').update({ enviado_em: new Date().toISOString() }).in('id', avisos.map((a) => a.id))
-  }
   return json({ enviados: avisos.length })
 })

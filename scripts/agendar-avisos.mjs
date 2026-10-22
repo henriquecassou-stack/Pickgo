@@ -37,6 +37,12 @@ begin
   else
     perform vault.create_secret('${segredo}', 'avisos_cron_secret', 'Segredo do cron para a Edge Function enviar-avisos');
   end if;
+  -- endereço da função, usado pelo envio imediato (trigger em avisos)
+  if exists (select 1 from vault.secrets where name = 'avisos_funcao_url') then
+    perform vault.update_secret((select id from vault.secrets where name = 'avisos_funcao_url'), '${url}');
+  else
+    perform vault.create_secret('${url}', 'avisos_funcao_url', 'URL da Edge Function enviar-avisos');
+  end if;
 end $$;
 
 -- avisos novos (urgente/atenção) a cada 10 minutos
