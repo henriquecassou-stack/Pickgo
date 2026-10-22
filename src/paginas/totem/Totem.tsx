@@ -446,7 +446,8 @@ export default function Totem() {
                             className="grid size-12 place-items-center rounded-full bg-rose-50 text-rose-600 ring-2 ring-rose-200 transition active:scale-90">
                             {noCarrinho === 1 ? <Trash2 className="size-5" /> : <Minus className="size-6" />}
                           </button>
-                          <span className="w-9 text-center text-2xl font-bold tabular-nums">{noCarrinho}</span>
+                          {/* key muda a cada toque: o número "pula" quando a quantidade muda */}
+                          <span key={noCarrinho} className="w-9 animate-pulo text-center text-2xl font-bold tabular-nums">{noCarrinho}</span>
                         </>
                       ) : null}
                       <button onClick={() => adicionar(p)} aria-label={`Adicionar ${p.nome}`}
@@ -915,7 +916,7 @@ function ListaItens({ carrinho, adicionar, remover, desabilitado }: {
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <BotaoQtd onClick={() => adicionar(p, -1)} rotulo="Diminuir" desabilitado={desabilitado || qtd === 1}><Minus /></BotaoQtd>
-            <span className="w-7 text-center text-2xl font-bold tabular-nums">{qtd}</span>
+            <span key={qtd} className="w-7 animate-pulo text-center text-2xl font-bold tabular-nums">{qtd}</span>
             <BotaoQtd onClick={() => adicionar(p, 1)} rotulo="Aumentar" desabilitado={desabilitado}><Plus /></BotaoQtd>
           </div>
           <span className="w-24 shrink-0 text-right text-xl font-semibold tabular-nums">{brl(p.preco_venda * qtd)}</span>
@@ -950,11 +951,11 @@ function PainelCarrinho({ carrinho, total, qtdItens, adicionar, remover, aoPagar
         <button onClick={() => carrinho.length && setExpandido(!expandido)} className="flex flex-1 items-center gap-4 text-left" disabled={!carrinho.length}>
           <span className="relative grid size-16 place-items-center rounded-2xl bg-slate-100">
             <ShoppingCart className="size-8 text-slate-700" />
-            {qtdItens > 0 && <span className="absolute -top-2 -right-2 grid size-8 place-items-center rounded-full bg-emerald-600 text-base font-bold text-white">{qtdItens}</span>}
+            {qtdItens > 0 && <span key={qtdItens} className="absolute -top-2 -right-2 grid size-8 animate-pulo place-items-center rounded-full bg-emerald-600 text-base font-bold text-white">{qtdItens}</span>}
           </span>
           <span>
             <span className="block text-lg text-slate-500">{qtdItens ? (expandido ? 'Fechar carrinho' : 'Ver carrinho') : 'Carrinho vazio'}</span>
-            <span className="block text-4xl font-extrabold tabular-nums">{brl(total)}</span>
+            <span key={total} className={cx('block origin-left text-4xl font-extrabold tabular-nums', total > 0 && 'animate-pulo-leve')}>{brl(total)}</span>
           </span>
         </button>
         <button onClick={aoPagar} disabled={!carrinho.length}

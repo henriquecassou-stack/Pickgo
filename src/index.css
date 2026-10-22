@@ -36,6 +36,28 @@
 
   --animate-entrar: entrar 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   --animate-pulsar-anel: pulsar-anel 1.8s ease-out infinite;
+  /* toque nos botões: onda a partir do dedo e "pulo" de números que mudam */
+  --ease-mola: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-onda: onda 0.6s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+  --animate-pulo: pulo 0.35s var(--ease-mola);
+  --animate-pulo-leve: pulo-leve 0.35s var(--ease-mola);
+
+  /* a cor fica visível até a metade e só então some (senão a onda some antes de crescer) */
+  @keyframes onda {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0.3; animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1); }
+    55% { opacity: 0.22; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+  }
+  @keyframes pulo {
+    0% { scale: 1; }
+    40% { scale: 1.22; }
+    100% { scale: 1; }
+  }
+  @keyframes pulo-leve {
+    0% { scale: 1; }
+    40% { scale: 1.07; }
+    100% { scale: 1; }
+  }
 
   @keyframes entrar {
     from { opacity: 0; transform: translateY(8px) scale(0.98); }
@@ -52,6 +74,17 @@
   body { @apply bg-slate-50 text-slate-800 antialiased; }
   input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
   :focus-visible { @apply outline-2 outline-offset-2 outline-emerald-500; }
+
+  /* todo botão "afunda" ao apertar e volta com uma leve mola.
+     :where() tem especificidade zero: quem já usa active:scale-* do Tailwind mantém o seu */
+  :where(button:not(:disabled)) { transition: scale 0.2s var(--ease-mola), background-color 0.15s, color 0.15s, box-shadow 0.15s, opacity 0.15s; }
+  :where(button:not(:disabled):active) { scale: 0.97; transition-duration: 0.09s; }
+}
+
+@layer components {
+  /* onda do toque (criada por src/lib/animacoes.ts) */
+  .onda-camada { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+  .onda { position: absolute; border-radius: 9999px; background: currentColor; animation: var(--animate-onda); }
 }
 
 @layer components {

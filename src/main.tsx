@@ -5,6 +5,7 @@ import './index.css'
 import { ProvedorSessao, useSessao } from './lib/sessao'
 import { Carregando, ProvedorAvisos } from './componentes/ui'
 import type { Perfil } from './lib/tipos'
+import { instalarAnimacoesDeToque } from './lib/animacoes'
 import Login from './paginas/Login'
 import LayoutAdmin from './paginas/admin/LayoutAdmin'
 
@@ -33,6 +34,8 @@ function Inicio() {
   const { usuario } = useSessao()
   return <Navigate to={!usuario ? '/login' : usuario.perfil === 'totem' ? '/totem' : '/admin'} replace />
 }
+
+instalarAnimacoesDeToque()
 
 // guarda o app no aparelho para abrir sem internet (só no build de produção)
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
