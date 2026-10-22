@@ -4,6 +4,11 @@
 // - Resend (RESEND_API_KEY): exige domínio verificado no EMAIL_FROM.
 // Remetente: EMAIL_FROM, no formato "Nome <email@exemplo.com>".
 
+/** Escapa texto para HTML: sugestões e comentários de clientes entram nos e-mails
+ *  e não podem virar link, imagem ou formatação (ex.: link falso para o admin). */
+export const escaparHtml = (v: unknown) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+
 export const emailConfigurado = () => !!(Deno.env.get('BREVO_API_KEY') || Deno.env.get('RESEND_API_KEY'))
 
 function remetente() {

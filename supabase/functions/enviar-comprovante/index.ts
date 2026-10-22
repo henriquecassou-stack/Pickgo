@@ -2,7 +2,7 @@
 // O e-mail digitado no totem é usado só para este envio e não é guardado;
 // sem e-mail digitado, usa o do cadastro do morador.
 import { brl, clienteServico, cors, erro, json, usuarioDaRequisicao } from '../_shared/comum.ts'
-import { emailConfigurado, enviarEmail } from '../_shared/mensageria.ts'
+import { emailConfigurado, enviarEmail, escaparHtml } from '../_shared/mensageria.ts'
 
 const fmtData = (iso: string) =>
   new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })
@@ -49,9 +49,9 @@ Deno.serve(async (req) => {
   const html = `<div style="font-family:system-ui,sans-serif;max-width:420px">
     <h2 style="margin:0 0 4px">pickgo</h2><p style="color:#64748b;margin:0 0 16px">Compra #${venda.numero} · ${fmtData(venda.pago_em!)}</p>
     <table style="width:100%;border-collapse:collapse">${itens.map((i) =>
-      `<tr><td style="padding:6px 0;border-bottom:1px solid #e2e8f0">${i.quantidade}x ${i.nome_produto}</td><td style="text-align:right;border-bottom:1px solid #e2e8f0">${brl(Number(i.subtotal))}</td></tr>`).join('')}
+      `<tr><td style="padding:6px 0;border-bottom:1px solid #e2e8f0">${i.quantidade}x ${escaparHtml(i.nome_produto)}</td><td style="text-align:right;border-bottom:1px solid #e2e8f0">${brl(Number(i.subtotal))}</td></tr>`).join('')}
     </table><p style="font-size:20px;font-weight:700;text-align:right">Total ${brl(Number(venda.total))}</p>
-    <p style="color:#64748b">Pago com ${METODOS[venda.metodo]}${venda.apartamento ? ` · Apto ${venda.apartamento}` : ''}</p></div>`
+    <p style="color:#64748b">Pago com ${METODOS[venda.metodo]}${venda.apartamento ? ` · Apto ${escaparHtml(venda.apartamento)}` : ''}</p></div>`
 
   try {
     await enviarEmail(destino, `Comprovante — compra #${venda.numero}`, html, texto)

@@ -5,7 +5,7 @@
 // Chamada pelo pg_cron (cabeçalho x-cron-secret) ou pelo admin no painel (JWT).
 // Publicar com: supabase functions deploy enviar-avisos --no-verify-jwt
 import { clienteServico, cors, erro, json, usuarioDaRequisicao } from '../_shared/comum.ts'
-import { enviarEmail } from '../_shared/mensageria.ts'
+import { enviarEmail, escaparHtml } from '../_shared/mensageria.ts'
 
 interface Aviso { id: number; tipo: string; gravidade: 'info' | 'atencao' | 'critico'; titulo: string; mensagem: string; link: string | null; criado_em: string }
 
@@ -17,12 +17,13 @@ function montar(titulo: string, avisos: Aviso[]) {
   const ordem = [...avisos].sort((a, b) => ['critico', 'atencao', 'info'].indexOf(a.gravidade) - ['critico', 'atencao', 'info'].indexOf(b.gravidade))
   const texto = [`🛒 pickgo — ${titulo}`, '', ...ordem.map((a) => `${ICONE[a.gravidade]} ${a.titulo}\n${a.mensagem}`), '', urlApp ? `Abrir painel: ${urlApp}/admin/avisos` : '']
     .join('\n').trim()
+  // títulos e mensagens podem conter texto digitado por clientes (sugestões, comentários): sempre escapados
   const html = `<div style="font-family:system-ui,sans-serif;max-width:560px">
-    <h2 style="margin:0 0 12px">pickgo — ${titulo}</h2>
+    <h2 style="margin:0 0 12px">pickgo — ${escaparHtml(titulo)}</h2>
     ${ordem.map((a) => `<div style="border-left:4px solid ${a.gravidade === 'critico' ? '#e11d48' : a.gravidade === 'atencao' ? '#f59e0b' : '#0ea5e9'};padding:8px 12px;margin:8px 0;background:#f8fafc">
       <div style="font-size:12px;color:#64748b">${ROTULO[a.gravidade]}</div>
-      <div style="font-weight:600">${a.titulo}</div><div style="color:#334155">${a.mensagem}</div>
-      ${urlApp && a.link ? `<a href="${urlApp}${a.link}" style="font-size:13px">Ver no painel</a>` : ''}</div>`).join('')}
+      <div style="font-weight:600">${escaparHtml(a.titulo)}</div><div style="color:#334155">${escaparHtml(a.mensagem)}</div>
+      ${urlApp && a.link?.startsWith('/') ? `<a href="${escaparHtml(urlApp + a.link)}" style="font-size:13px">Ver no painel</a>` : ''}</div>`).join('')}
   </div>`
   return { texto, html }
 }

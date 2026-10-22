@@ -7,6 +7,10 @@ import { brl, dataHoraBR, hojeISO } from '../../lib/formato'
 import { chavePixValida, gerarPixEstatico, normalizarChave } from '../../lib/pix'
 import { Botao, CabecalhoPagina, Carregando, Cartao, cx, Etiqueta, Rotulo, useAviso, Vazio } from '../../componentes/ui'
 
+/** o cartaz é montado como HTML: o nome do recebedor é escapado */
+const escaparHtml = (v: unknown) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+
 const TIPOS: { id: TipoChavePix; rotulo: string; exemplo: string }[] = [
   { id: 'cnpj', rotulo: 'CNPJ', exemplo: '12.345.678/0001-90' },
   { id: 'cpf', rotulo: 'CPF', exemplo: '123.456.789-09' },
@@ -77,7 +81,7 @@ export default function PixOffline() {
       </style></head><body>
       <h1>Totem sem internet?</h1><h2>Pague suas compras pelo PIX</h2>
       <div class="qr">${svg}</div>
-      <p class="rec">Recebedor: <strong>${cfg.dados?.nome_recebedor ?? ''}</strong></p>
+      <p class="rec">Recebedor: <strong>${escaparHtml(cfg.dados?.nome_recebedor)}</strong></p>
       <ol><li>Abra o app do seu banco e leia o QR Code</li><li>Digite o <strong>valor total</strong> dos produtos</li>
       <li>Na descrição, informe o <strong>apartamento</strong> (se for morador)</li></ol>
       <p class="aviso">Use este cartaz só quando o totem estiver desligado ou fora do ar.</p>

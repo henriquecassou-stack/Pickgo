@@ -243,6 +243,22 @@ await como(admin, async () => {
   ok(vis.com > 0, `vendas de visitante e morador sem cadastro do seed com CPF (${vis.com} de ${vis.total})`)
 }
 
+// --- visitante não logado (anon) não executa nenhuma função ---
+{
+  await db.exec(`set role anon; select set_config('request.jwt.claim.sub', '', false);`)
+  try {
+    for (const [sql, nome] of [
+      [`select identificar_morador('101', '1234')`, 'identificar morador'],
+      [`select cadastrar_morador_totem('X', '1', null, null, null, '1234', true, '52998224725')`, 'autocadastro'],
+      [`select registrar_venda_offline('{}'::jsonb)`, 'venda offline'],
+      [`select verificar_avisos()`, 'varredura de avisos'],
+      [`select config_pix_totem()`, 'chave PIX do totem'],
+    ]) await esperaErro(sql, 'permission denied', `visitante não logado não executa: ${nome}`)
+  } finally {
+    await db.exec(`reset role;`)
+  }
+}
+
 // --- promoções ---
 {
   const preco = async (nome) => (await um(`select preco_venda::float p, preco_original::float o, promocao from catalogo_totem where nome = $1`, [nome]))
