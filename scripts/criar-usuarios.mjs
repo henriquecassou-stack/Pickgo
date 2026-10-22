@@ -2,6 +2,7 @@
 // Usa a service role key — rode só na sua máquina, nunca no navegador.
 //
 //   node scripts/criar-usuarios.mjs                      (pergunta e-mails e senhas)
+//   node scripts/criar-usuarios.mjs --totem              (só a conta do totem: nova senha)
 //   node scripts/criar-usuarios.mjs <email-admin> <senha-admin> <email-totem> <senha-totem>
 //
 // URL: VITE_SUPABASE_URL do .env.local (ou SUPABASE_URL).
@@ -48,20 +49,11 @@ if (!url || !chave) {
   process.exit(1)
 }
 
-let [emailAdmin, senhaAdmin, emailTotem, senhaTotem] = process.argv.slice(2)
-if (!emailTotem) {
-  console.log('Contas do pickgo (a senha não aparece enquanto você digita)\n')
-  emailAdmin = await perguntar('E-mail do administrador: ')
-  senhaAdmin = await perguntar('Senha do administrador (mín. 8): ', true)
-  emailTotem = await perguntar('E-mail do totem: ')
-  senhaTotem = await perguntar('Senha do totem (mín. 8): ', true)
-}
-for (const [email, senha] of [[emailAdmin, senhaAdmin], [emailTotem, senhaTotem]]) {
+const db = createClient(url, chave, { auth: { persistSession: false } })
+const validar = (email, senha) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email ?? '')) { console.error(`E-mail inválido: ${email}`); process.exit(1) }
   if ((senha ?? '').length < 8) { console.error(`Senha de ${email} muito curta (mínimo 8 caracteres).`); process.exit(1) }
 }
-
-const db = createClient(url, chave, { auth: { persistSession: false } })
 
 async function garantir(email, senha, perfil, nome) {
   const { data, error } = await db.auth.admin.createUser({
@@ -79,6 +71,33 @@ async function garantir(email, senha, perfil, nome) {
   if (e2) throw e2
   console.log(`✓ ${perfil.padEnd(5)} ${email}`)
 }
+
+if (process.argv.includes('--totem')) {
+  // só troca a senha da conta do totem (a do admin fica como está)
+  const { data: totens } = await db.from('usuarios').select('email').eq('perfil', 'totem').order('criado_em')
+  let emailTotem = totens?.length === 1 ? totens[0].email : null
+  console.log('Nova senha do totem (a senha não aparece enquanto você digita)\n')
+  if (emailTotem) console.log(`Conta do totem: ${emailTotem}`)
+  else emailTotem = await perguntar('E-mail do totem: ')
+  const senha = await perguntar('Nova senha do totem (mín. 8): ', true)
+  const repetida = await perguntar('Repita a nova senha: ', true)
+  if (senha !== repetida) { console.error('As senhas não são iguais. Nada foi alterado.'); process.exit(1) }
+  validar(emailTotem, senha)
+  await garantir(emailTotem, senha, 'totem', 'Totem da portaria')
+  console.log('\nPronto! Entre no totem com a senha nova.')
+  process.exit(0)
+}
+
+let [emailAdmin, senhaAdmin, emailTotem, senhaTotem] = process.argv.slice(2)
+if (!emailTotem) {
+  console.log('Contas do pickgo (a senha não aparece enquanto você digita)\n')
+  emailAdmin = await perguntar('E-mail do administrador: ')
+  senhaAdmin = await perguntar('Senha do administrador (mín. 8): ', true)
+  emailTotem = await perguntar('E-mail do totem: ')
+  senhaTotem = await perguntar('Senha do totem (mín. 8): ', true)
+}
+validar(emailAdmin, senhaAdmin)
+validar(emailTotem, senhaTotem)
 
 await garantir(emailAdmin, senhaAdmin, 'admin', 'Administrador')
 await garantir(emailTotem, senhaTotem, 'totem', 'Totem da portaria')
