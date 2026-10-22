@@ -103,6 +103,33 @@
   25% { opacity: 1; }
   100% { transform: translateX(-26px); opacity: 0; }
 }
+/* pagamento aprovado: selo, check desenhado, anéis, confete e entrada em sequência.
+   fill-mode both: antes do atraso fica no estado inicial, depois fica no final */
+.selo-aprovado { animation: selo-pop 0.5s var(--ease-mola) both; }
+.selo-aprovado .check { stroke-dasharray: 40; animation: check-desenho 0.4s 0.3s cubic-bezier(0.65, 0, 0.35, 1) both; }
+.selo-aprovado .anel { animation: anel-sucesso 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.entra-em-seq { animation: entrar 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.confete { position: absolute; top: 0; left: 0; animation: confete-voa var(--dur) var(--atraso) cubic-bezier(0.2, 0.6, 0.4, 1) both; }
+
+@keyframes selo-pop {
+  from { scale: 0; }
+  to { scale: 1; }
+}
+@keyframes check-desenho {
+  from { stroke-dashoffset: 40; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes anel-sucesso {
+  from { scale: 0.85; opacity: 0.55; }
+  to { scale: 1.9; opacity: 0; }
+}
+/* sobe espalhando a partir do selo e depois cai girando */
+@keyframes confete-voa {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  30% { transform: translate(calc(var(--dx) * 0.6), var(--sobe)) rotate(calc(var(--giro) * 0.3)); opacity: 1; }
+  100% { transform: translate(var(--dx), 85vh) rotate(var(--giro)); opacity: 0; }
+}
+
 /* tracejado correndo para a esquerda = carrinho indo para a direita */
 @keyframes carrinho-estrada {
   to { stroke-dashoffset: 28; }

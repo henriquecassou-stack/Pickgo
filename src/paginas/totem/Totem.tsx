@@ -1131,12 +1131,11 @@ function TelaOfflineOk({ venda, ocioso, aoConcluir }: { venda: VendaOffline; oci
   const restante = Math.min(OCIOSO_MS / 1000, Math.max(0, Math.ceil((OCIOSO_MS - ocioso) / 1000)))
   return (
     <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-8">
-      <div className="grid size-28 animate-entrar place-items-center rounded-full bg-emerald-100">
-        <CircleCheck className="size-20 text-emerald-600" strokeWidth={2.2} />
-      </div>
-      <h1 className="mt-5 text-center text-5xl font-extrabold text-emerald-700">Compra registrada!</h1>
-      <p className="mt-2 max-w-lg text-center text-2xl text-slate-600">Obrigado. Pode levar seus produtos. O pagamento será conferido pela administração.</p>
-      <div className="mt-8 w-full max-w-lg rounded-[2rem] bg-white p-7 shadow-sm">
+      <Confete />
+      <SeloAprovado />
+      <h1 {...emSeq(0.35)} className="entra-em-seq mt-5 text-center text-5xl font-extrabold text-emerald-700">Compra registrada!</h1>
+      <p {...emSeq(0.45)} className="entra-em-seq mt-2 max-w-lg text-center text-2xl text-slate-600">Obrigado. Pode levar seus produtos. O pagamento será conferido pela administração.</p>
+      <div {...emSeq(0.6)} className="entra-em-seq mt-8 w-full max-w-lg rounded-[2rem] bg-white p-7 shadow-sm">
         <div className="flex justify-between text-lg text-slate-500">
           <span>PIX sem internet</span>
           <span>{dataHoraBR(venda.criado_em)}</span>
@@ -1236,6 +1235,60 @@ function TelaAguardando({ pagamento, total, restanteMs, aoCancelar, aoSimular }:
   )
 }
 
+/** Selo de sucesso: círculo surge com mola, o check é desenhado e dois anéis se espalham */
+function SeloAprovado() {
+  return (
+    <div className="selo-aprovado relative grid size-28 place-items-center">
+      <span className="anel absolute inset-0 rounded-full border-4 border-folha" style={{ animationDelay: '0.25s' }} />
+      <span className="anel absolute inset-0 rounded-full border-4 border-folha/60" style={{ animationDelay: '0.45s' }} />
+      <svg viewBox="0 0 48 48" className="relative size-28" aria-hidden="true">
+        <circle cx="24" cy="24" r="23" className="fill-marca" />
+        <path className="check" d="M14 24.5 L21 31.5 L35 17" pathLength={40} fill="none" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  )
+}
+
+const CORES_CONFETE = ['#79ad48', '#0f402d', '#d99a12', '#a9cb86', '#062a1f']
+
+/** Confete nas cores da marca saindo do selo; some sozinho depois de ~3 s */
+function Confete() {
+  const [pecas] = useState(() => Array.from({ length: 32 }, (_, i) => ({
+    cor: CORES_CONFETE[i % CORES_CONFETE.length],
+    dx: Math.round((Math.random() * 2 - 1) * 420),
+    // o selo fica perto do topo: sobe pouco para o confete não sair da tela
+    sobe: -Math.round(30 + Math.random() * 60),
+    giro: Math.round((Math.random() * 2 - 1) * 720),
+    dur: (1.7 + Math.random() * 0.9).toFixed(2),
+    atraso: (0.2 + Math.random() * 0.25).toFixed(2),
+    largura: Math.round(8 + Math.random() * 6),
+    bolinha: Math.random() < 0.3,
+  })))
+  const [ativo, setAtivo] = useState(true)
+  useEffect(() => {
+    navigator.vibrate?.([30, 50, 70])
+    const t = setTimeout(() => setAtivo(false), 3300)
+    return () => clearTimeout(t)
+  }, [])
+  if (!ativo) return null
+  // fixed: o confete não mexe na rolagem da tela; a origem fica no centro do selo
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
+      <div className="absolute top-[88px] left-1/2">
+        {pecas.map((p, i) => (
+          <span key={i} className="confete" style={{
+            width: p.largura, height: p.bolinha ? p.largura : p.largura * 1.7, background: p.cor, borderRadius: p.bolinha ? 9999 : 2,
+            '--dx': `${p.dx}px`, '--sobe': `${p.sobe}px`, '--giro': `${p.giro}deg`, '--dur': `${p.dur}s`, '--atraso': `${p.atraso}s`,
+          } as React.CSSProperties} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** atraso para os blocos da tela de sucesso entrarem um depois do outro */
+const emSeq = (s: number) => ({ className: 'entra-em-seq', style: { animationDelay: `${s}s` } })
+
 function TelaAprovado({ compra, pagamento, itens, cliente, apartamento, ocioso, aoConcluir }: {
   compra: ResultadoCriarPagamento; pagamento: Pagamento; itens: ItemCarrinho[]; cliente: Cliente | null; apartamento: string; ocioso: number; aoConcluir: () => void
 }) {
@@ -1263,13 +1316,12 @@ function TelaAprovado({ compra, pagamento, itens, cliente, apartamento, ocioso, 
 
   return (
     <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-8">
-      <div className="grid size-28 animate-entrar place-items-center rounded-full bg-emerald-100">
-        <CircleCheck className="size-20 text-emerald-600" strokeWidth={2.2} />
-      </div>
-      <h1 className="mt-5 text-5xl font-extrabold text-emerald-700">Pagamento aprovado!</h1>
-      <p className="mt-2 text-2xl text-slate-600">Obrigado pela compra. Pode levar seus produtos.</p>
+      <Confete />
+      <SeloAprovado />
+      <h1 {...emSeq(0.35)} className="entra-em-seq mt-5 text-5xl font-extrabold text-emerald-700">Pagamento aprovado!</h1>
+      <p {...emSeq(0.45)} className="entra-em-seq mt-2 text-2xl text-slate-600">Obrigado pela compra. Pode levar seus produtos.</p>
 
-      <div className="mt-8 w-full max-w-lg rounded-[2rem] bg-white p-7 shadow-sm">
+      <div {...emSeq(0.6)} className="entra-em-seq mt-8 w-full max-w-lg rounded-[2rem] bg-white p-7 shadow-sm">
         <div className="flex justify-between text-lg text-slate-500">
           <span>Compra #{compra.venda.numero}</span>
           <span>{dataHoraBR(hora)}</span>
@@ -1288,7 +1340,9 @@ function TelaAprovado({ compra, pagamento, itens, cliente, apartamento, ocioso, 
         </div>
       </div>
 
-      <AvaliacaoCompra vendaId={compra.venda.id} />
+      <div {...emSeq(0.75)} className="entra-em-seq flex w-full justify-center">
+        <AvaliacaoCompra vendaId={compra.venda.id} />
+      </div>
 
       {envio ? (
         <div className="mt-6 w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-sm">
