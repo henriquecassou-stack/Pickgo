@@ -130,6 +130,38 @@
   100% { transform: translate(var(--dx), 85vh) rotate(var(--giro)); opacity: 0; }
 }
 
+/* logo animado da tela inicial do totem (LogoPickgo animado) */
+.logo-animado .logo-simbolo { animation: logo-chega 0.8s var(--ease-mola) both; }
+.logo-animado .logo-corpo { transform-box: fill-box; transform-origin: 50% 100%; animation: logo-balanco 1.6s ease-in-out 0.8s infinite; }
+.logo-animado .logo-vento path { animation: logo-vento 2s linear infinite; }
+.logo-animado .logo-vento path + path { animation-delay: -1s; }
+.logo-animado .logo-pino { transform-origin: 50% 100%; animation: logo-pino 4s ease-in-out 1.2s infinite; }
+/* pausado enquanto a tela de abertura cobre o totem (Abertura.tsx) */
+html[data-abertura] .logo-animado, html[data-abertura] .logo-animado * { animation-play-state: paused !important; }
+
+@keyframes logo-chega {
+  from { transform: translateX(-70%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes logo-balanco {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(-1.2deg); }
+}
+/* as linhas nunca somem por completo: o logo continua reconhecível */
+@keyframes logo-vento {
+  0% { transform: translateX(10px); opacity: 0.35; }
+  25% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { transform: translateX(-16px); opacity: 0.35; }
+}
+/* pino cai no mapa: sobe, aterrissa achatando e quica de leve */
+@keyframes logo-pino {
+  0%, 70%, 100% { transform: translateY(0) scale(1); }
+  78% { transform: translateY(-30%) scale(0.96, 1.04); }
+  86% { transform: translateY(0) scale(1.1, 0.86); }
+  92% { transform: translateY(-8%) scale(1); }
+}
+
 /* tracejado correndo para a esquerda = carrinho indo para a direita */
 @keyframes carrinho-estrada {
   to { stroke-dashoffset: 28; }

@@ -563,7 +563,7 @@ function TelaInicio({ aoMorador, aoVisitante, segurarLogo, demo, semInternet, ao
 
       <div className={cx('relative flex min-h-full flex-col items-center justify-center px-8 py-12 text-center', `${baixo}:py-6`)}>
         <div {...segurarLogo}>
-          <LogoPickgo className={cx('text-8xl sm:text-9xl', `${baixo}:text-7xl`)} />
+          <LogoPickgo animado className={cx('text-8xl sm:text-9xl', `${baixo}:text-7xl`)} />
         </div>
         <p className={cx('mt-6 max-w-4xl text-2xl font-medium text-marca-escura sm:text-3xl', `${baixo}:mt-3 ${baixo}:text-2xl`)}>
           Pegue o produto, registre aqui e pague com PIX ou cartão.

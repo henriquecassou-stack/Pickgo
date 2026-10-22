@@ -1,7 +1,7 @@
 // Tela de abertura do totem: carrinho andando + logo por 2,5 s, enquanto o app
 // carrega por baixo; depois some com um esmaecer. Só no totem (atalho do iPad em
 // modo app ou endereço /totem): o painel do admin abre direto.
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { CarrinhoAnimado, LogoPickgo } from './Logo'
 
 const DURACAO_MS = 2500
@@ -14,6 +14,13 @@ function abrirComAbertura() {
 
 export function Abertura({ children }: { children: ReactNode }) {
   const [fase, setFase] = useState<'mostrando' | 'saindo' | 'fim'>(() => (abrirComAbertura() ? 'mostrando' : 'fim'))
+
+  // enquanto a abertura cobre a tela, as animações do logo da tela inicial ficam
+  // pausadas (CSS: html[data-abertura]); começam quando ela começa a sumir
+  useLayoutEffect(() => {
+    if (fase === 'mostrando') document.documentElement.dataset.abertura = 'on'
+    else delete document.documentElement.dataset.abertura
+  }, [fase])
 
   useEffect(() => {
     if (fase === 'fim') return
