@@ -11,18 +11,14 @@ const FOLHA = '#79ad48'
 /** Só o símbolo (carrinho) */
 export function SimboloPickgo({ className, cor = ESCURO }: { className?: string; cor?: string }) {
   return (
-    <svg viewBox="6 12 186 126" className={cx('overflow-visible', className)} aria-hidden="true">
-      {/* linhas de velocidade (meio do carrinho); classes usadas pelo logo animado */}
-      <g className="logo-vento">
-        <path d="M17 52 H64" stroke={FOLHA} strokeWidth="16" strokeLinecap="round" />
-        <path d="M48 81 H72" stroke={FOLHA} strokeWidth="18" strokeLinecap="round" />
-      </g>
-      <g className="logo-corpo">
-        {/* cesto: topo e lado direito em verde-folha (a base passa por cima da ponta) */}
-        <path d="M122 40 H178 L168 86" fill="none" stroke={FOLHA} strokeWidth="17" strokeLinecap="round" strokeLinejoin="round" />
-        {/* alça "¬" descendo até a base grossa */}
-        <path d="M54 24 H90 L104 90 H168" fill="none" stroke={cor} strokeWidth="19" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
+    <svg viewBox="6 12 186 126" className={className} aria-hidden="true">
+      {/* linhas de velocidade (meio do carrinho) */}
+      <path d="M17 52 H64" stroke={FOLHA} strokeWidth="16" strokeLinecap="round" />
+      <path d="M48 81 H72" stroke={FOLHA} strokeWidth="18" strokeLinecap="round" />
+      {/* cesto: topo e lado direito em verde-folha (a base passa por cima da ponta) */}
+      <path d="M122 40 H178 L168 86" fill="none" stroke={FOLHA} strokeWidth="17" strokeLinecap="round" strokeLinejoin="round" />
+      {/* alça "¬" descendo até a base grossa */}
+      <path d="M54 24 H90 L104 90 H168" fill="none" stroke={cor} strokeWidth="19" strokeLinecap="round" strokeLinejoin="round" />
       {/* rodas */}
       <circle cx="112.5" cy="121.5" r="15" fill={cor} />
       <circle cx="165" cy="121.5" r="15" fill={cor} />
@@ -35,9 +31,9 @@ export function SimboloPickgo({ className, cor = ESCURO }: { className?: string;
  * as linhas de velocidade passam e a estrada corre embaixo (CSS em index.css).
  * O corpo usa currentColor: em botão escuro fica branco, em fundo claro fica verde-escuro.
  */
-export function CarrinhoAnimado({ className, rotulo = 'Carregando' }: { className?: string; rotulo?: string }) {
+export function CarrinhoAnimado({ className, rotulo = 'Carregando', cor }: { className?: string; rotulo?: string; cor?: string }) {
   return (
-    <svg viewBox="0 8 200 146" className={cx('carrinho-anda', className)} role="img" aria-label={rotulo}>
+    <svg viewBox="0 8 200 146" className={cx('carrinho-anda', className)} role="img" aria-label={rotulo} style={cor ? { color: cor } : undefined}>
       <g className="carrinho-vento">
         <path d="M17 52 H64" stroke={FOLHA} strokeWidth="16" strokeLinecap="round" />
         <path d="M48 81 H72" stroke={FOLHA} strokeWidth="18" strokeLinecap="round" />
@@ -65,13 +61,16 @@ function Pino({ className }: { className?: string }) {
 
 /**
  * Logo completo. Use text-* para o tamanho, ex.: <LogoPickgo className="text-6xl" />
- * animado: o carrinho chega pela esquerda, balança e as linhas de velocidade correm;
- * o pino do "o" dá um pulinho a cada 4 s (CSS em index.css, classe logo-animado).
+ * animado: usa o mesmo carrinho andando da tela de carregamento (CarrinhoAnimado), que
+ * chega pela esquerda; o pino do "o" dá um pulinho a cada 4 s (CSS: logo-animado).
  */
 export function LogoPickgo({ className, claro = false, semSimbolo = false, animado = false }: { className?: string; claro?: boolean; semSimbolo?: boolean; animado?: boolean }) {
   return (
     <span className={cx('inline-flex items-center gap-[0.14em] leading-none select-none', animado && 'logo-animado', className)} role="img" aria-label="pickgo">
-      {!semSimbolo && <SimboloPickgo className="logo-simbolo h-[1.05em] w-auto shrink-0" cor={claro ? '#ffffff' : ESCURO} />}
+      {!semSimbolo && (animado
+        // mesmo carrinho da tela de carregamento; viewBox maior (inclui a estrada), por isso 1.22em
+        ? <CarrinhoAnimado className="logo-simbolo h-[1.22em] w-auto shrink-0" rotulo="pickgo" cor={claro ? '#ffffff' : ESCURO} />
+        : <SimboloPickgo className="h-[1.05em] w-auto shrink-0" cor={claro ? '#ffffff' : ESCURO} />)}
       <span className="inline-flex items-baseline font-logo font-bold tracking-[-0.02em]" style={{ fontVariationSettings: '"wght" 700' }}>
         <span style={{ color: claro ? '#ffffff' : ESCURO }}>pick</span>
         <span style={{ color: FOLHA }}>g</span>
