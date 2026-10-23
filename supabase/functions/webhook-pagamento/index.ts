@@ -3,7 +3,7 @@
 // e só então chama finalizar_pagamento() (idempotente) ou encerrar_pagamento().
 // Publicar com:  supabase functions deploy webhook-pagamento --no-verify-jwt
 import { clienteServico, json } from '../_shared/comum.ts'
-import { assinaturaValida, buscarPagamento, type PagamentoMP } from '../_shared/mercadopago.ts'
+import { assinaturaValida, buscarIntencaoPoint, buscarPagamento, type PagamentoMP } from '../_shared/mercadopago.ts'
 
 const MOTIVOS: Record<string, string> = {
   cc_rejected_insufficient_amount: 'Saldo ou limite insuficiente',
@@ -21,19 +21,44 @@ const MOTIVOS: Record<string, string> = {
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ ok: true })
 
+  // Produção sem chave secreta: não há como autenticar a notificação. Falha fechado
+  // (o Mercado Pago reenvia depois); configure MP_WEBHOOK_SECRET junto com o token.
+  if (Deno.env.get('MP_ACCESS_TOKEN') && !Deno.env.get('MP_WEBHOOK_SECRET')) {
+    console.error('MP_WEBHOOK_SECRET não configurado: notificação recusada')
+    return json({ erro: 'webhook sem chave secreta configurada' }, 503)
+  }
+
   const url = new URL(req.url)
   const corpo = await req.json().catch(() => ({}))
   const db = clienteServico()
 
-  // Notificação da maquininha Point (intenção cancelada/abandonada no terminal)
+  // Notificação da maquininha Point (intenção cancelada/abandonada no terminal).
+  // Autentica pela assinatura e confirma o estado consultando a intenção no provedor.
   if (corpo?.additional_info?.external_reference && corpo?.state && !corpo?.payment?.id) {
-    if (['CANCELED', 'ERROR', 'ABANDONED'].includes(corpo.state)) {
-      await db.rpc('encerrar_pagamento', {
-        p_pagamento_id: corpo.additional_info.external_reference,
-        p_status: corpo.state === 'ERROR' ? 'recusado' : 'cancelado',
-        p_motivo: corpo.state === 'ERROR' ? 'Erro na maquininha' : 'Operação cancelada na maquininha',
-        p_resposta: corpo,
+    const intentId = String(url.searchParams.get('data.id') ?? corpo?.id ?? '')
+    if (!intentId || !(await assinaturaValida(req, intentId))) {
+      console.warn('Assinatura inválida (Point)', intentId)
+      return json({ erro: 'assinatura inválida' }, 401)
+    }
+    let intencao
+    try {
+      intencao = await buscarIntencaoPoint(intentId)
+    } catch (e) {
+      console.error(e)
+      return json({ erro: 'falha ao consultar intenção' }, 500) // MP tentará novamente
+    }
+    const ref = intencao.additional_info?.external_reference
+    if (ref && ['CANCELED', 'ERROR', 'ABANDONED'].includes(intencao.state)) {
+      const { error } = await db.rpc('encerrar_pagamento', {
+        p_pagamento_id: ref,
+        p_status: intencao.state === 'ERROR' ? 'recusado' : 'cancelado',
+        p_motivo: intencao.state === 'ERROR' ? 'Erro na maquininha' : 'Operação cancelada na maquininha',
+        p_resposta: { id: intencao.id, state: intencao.state },
       })
+      if (error) {
+        console.error(error)
+        return json({ erro: error.message }, 500)
+      }
     }
     return json({ ok: true })
   }
@@ -70,6 +95,13 @@ Deno.serve(async (req) => {
   let resultado
   if (pagamentoMP.status === 'approved') {
     resultado = await db.rpc('finalizar_pagamento', { p_pagamento_id: pagamentoId, p_id_externo: String(pagamentoMP.id), p_resposta: resumo })
+  } else if (pagamentoMP.status === 'refunded' || pagamentoMP.status === 'charged_back') {
+    // estorno ou contestação: tira a venda do faturamento e avisa o administrador
+    resultado = await db.rpc('registrar_estorno', {
+      p_pagamento_id: pagamentoId,
+      p_status: pagamentoMP.status === 'refunded' ? 'estornado' : 'contestado',
+      p_resposta: resumo,
+    })
   } else if (pagamentoMP.status === 'rejected' || pagamentoMP.status === 'cancelled') {
     const expirado = pagamentoMP.status_detail === 'expired'
     resultado = await db.rpc('encerrar_pagamento', {

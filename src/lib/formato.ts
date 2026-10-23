@@ -82,6 +82,7 @@ export const ROTULO_STATUS_VENDA: Record<StatusVenda, string> = {
   recusada: 'Recusada',
   expirada: 'Expirada',
   cancelada: 'Cancelada',
+  estornada: 'Estornada',
 }
 
 /** Converte "12,50" ou "12.50" em número */

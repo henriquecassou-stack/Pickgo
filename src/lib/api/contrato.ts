@@ -4,7 +4,7 @@ import type {
   Avaliacao, FiltroAvaliacoes, ResumoAvaliacoes, SugestaoProduto, ClienteVenda, FaturamentoCliente, Morador, MoradorEditavel, MoradorIdentificado, NovoCadastroTotem,
   Agrupamento, Categoria, FaturamentoCategoria, FaturamentoMetodo, FiltroMovimentacoes, FiltroVendas, Fornecedor,
   ItemCatalogo, MetodoPagamento, Movimentacao, NovaMovimentacao, Pagamento, PontoSerie, Produto, ProdutoEditavel, Promocao, PromocaoEditavel,
-  ResultadoCriarPagamento, ResumoDashboard, TopProduto, Usuario, Venda,
+  ResultadoCriarPagamento, ResumoDashboard, StatusPagamento, TopProduto, Usuario, Venda,
 } from '../tipos'
 
 /**
@@ -64,12 +64,18 @@ export interface Api {
   /** envia uma venda feita offline (idempotente pelo txid) */
   registrarVendaOffline(v: VendaOffline): Promise<{ numero: number; repetida: boolean }>
   conferirVendaOffline(vendaId: string, recebido: boolean): Promise<void>
+  /** venda offline que o servidor recusou (ou fila corrompida): guarda para o admin conferir */
+  registrarRejeicaoOffline(dados: unknown, erro: string): Promise<void>
 
   // totem
   catalogo(): Promise<ItemCatalogo[]>
-  criarPagamento(itens: { produto_id: string; quantidade: number }[], metodo: MetodoPagamento, cliente: ClienteVenda): Promise<ResultadoCriarPagamento>
+  /** tentativaId: o mesmo id em um reenvio devolve a mesma cobrança (não duplica) */
+  criarPagamento(itens: { produto_id: string; quantidade: number }[], metodo: MetodoPagamento, cliente: ClienteVenda, tentativaId?: string): Promise<ResultadoCriarPagamento>
   acompanharPagamento(id: string, cb: (p: Pagamento) => void): () => void
-  cancelarPagamento(id: string, motivo: 'cancelado' | 'expirado'): Promise<void>
+  /** situação atual de um pagamento (retomar a compra depois de recarregar o totem) */
+  lerPagamento(id: string): Promise<Pagamento | null>
+  /** devolve o estado final: pode ser 'aprovado' se o PIX foi pago no último instante */
+  cancelarPagamento(id: string, motivo: 'cancelado' | 'expirado'): Promise<StatusPagamento>
   simularPagamento(id: string, resultado: 'aprovado' | 'recusado'): Promise<void>
   /** destino null = usa o contato do cadastro do morador */
   enviarComprovante(vendaId: string, canal: 'email', destino: string | null): Promise<void>

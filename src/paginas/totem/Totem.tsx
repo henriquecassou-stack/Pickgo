@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { useSessao } from '../../lib/sessao'
 import type { ClienteVenda, ItemCatalogo, MetodoPagamento, MoradorIdentificado, Pagamento, PixTotem, ResultadoCriarPagamento, TipoCliente, VendaOffline } from '../../lib/tipos'
-import { catalogoLocal, ehErroDeRede, filaOffline, pixLocal } from '../../lib/offline'
+import { catalogoLocal, compraPendente, ehErroDeRede, filaOffline, pixLocal } from '../../lib/offline'
 import { online, simularOffline } from '../../lib/conexao'
 import { gerarPixEstatico, novoTxidOffline } from '../../lib/pix'
 import { cpfValido, formatarCpf, mascararCpf, somenteDigitos } from '../../lib/cpf'
@@ -49,6 +49,9 @@ export default function Totem() {
   const [ultimoToque, setUltimoToque] = useState(Date.now())
   const [agora, setAgora] = useState(Date.now())
   const desinscrever = useRef<(() => void) | null>(null)
+  // BUG-004: id da tentativa de cobrança; reenviar o mesmo carrinho/forma reaproveita o id
+  const tentativa = useRef<{ chave: string; id: string } | null>(null)
+  const [cancelando, setCancelando] = useState(false)
 
   // ---- modo sem internet -------------------------------------------------
   const [semInternet, setSemInternet] = useState(() => !online())
@@ -97,7 +100,25 @@ export default function Totem() {
             setSemInternet(true)
             break
           }
-          console.error('Venda offline recusada pelo servidor', v.txid, e) // fica na fila para análise
+          // recusa definitiva (dados inválidos): guarda no servidor para o admin conferir e tira da fila
+          console.error('Venda offline recusada pelo servidor', v.txid, e)
+          try {
+            await api.registrarRejeicaoOffline(v, (e as Error).message)
+            filaOffline.remover(v.txid)
+          } catch (e2) {
+            if (ehErroDeRede(e2)) { setSemInternet(true); break }
+            console.error('Não foi possível guardar a recusa; a venda continua na fila', e2)
+          }
+        }
+      }
+      // cópias de filas corrompidas: envia o conteúdo bruto para o admin recuperar
+      for (const c of filaOffline.corrompidas()) {
+        try {
+          await api.registrarRejeicaoOffline({ txid: `corrompida-${c.quando}`, bruto: c.bruto.slice(0, 50_000) }, 'Fila de vendas sem internet corrompida no totem')
+          filaOffline.removerCorrompida(c.quando)
+        } catch (e) {
+          if (ehErroDeRede(e)) break
+          console.error('Falha ao enviar fila corrompida', e)
         }
       }
     } finally {
@@ -150,6 +171,8 @@ export default function Totem() {
   const reiniciar = useCallback(() => {
     desinscrever.current?.()
     desinscrever.current = null
+    tentativa.current = null
+    compraPendente.limpar()
     setCarrinho([])
     setCompra(null)
     setPagamento(null)
@@ -219,6 +242,52 @@ export default function Totem() {
     setEtapa('compra')
   }
 
+  /** pagamento chegou a um estado final: esquece a tentativa e a compra guardada */
+  function encerrouPagamento() {
+    tentativa.current = null
+    compraPendente.limpar()
+  }
+
+  function acompanhar(id: string) {
+    desinscrever.current?.()
+    desinscrever.current = api.acompanharPagamento(id, (p) => {
+      setPagamento((atual) => ({ ...atual!, ...p }))
+      if (p.status === 'aprovado') setEtapa('aprovado')
+      else if (p.status !== 'pendente') setEtapa('falha')
+      if (p.status !== 'pendente') encerrouPagamento()
+      setUltimoToque(Date.now())
+    })
+  }
+
+  // BUG-013: ao abrir o totem, retoma a compra que estava aguardando pagamento
+  const retomou = useRef(false)
+  useEffect(() => {
+    if (retomou.current) return
+    retomou.current = true
+    type Guardada = { compra: ResultadoCriarPagamento; pagamento: Pagamento; itens: ItemCarrinho[]; cliente: Cliente | null; apartamento: string }
+    const g = compraPendente.ler<Guardada>()
+    if (!g?.pagamento?.id) return
+    // passou muito do prazo do QR: o servidor expira sozinho; não retoma
+    if (new Date(g.pagamento.expira_em).getTime() < Date.now() - 10 * 60_000) return compraPendente.limpar()
+    api.lerPagamento(g.pagamento.id).then((p) => {
+      if (!p || (p.status !== 'pendente' && p.status !== 'aprovado')) return compraPendente.limpar()
+      setCliente(g.cliente)
+      setApartamento(g.apartamento ?? '')
+      setCarrinho(g.itens)
+      setItensPagos(g.itens)
+      setCompra(g.compra)
+      setPagamento({ ...g.pagamento, ...p })
+      setUltimoToque(Date.now())
+      if (p.status === 'aprovado') {
+        setEtapa('aprovado')
+        compraPendente.limpar()
+      } else {
+        setEtapa('aguardando')
+        acompanhar(p.id)
+      }
+    }).catch(() => { /* sem internet: tenta de novo na próxima abertura */ })
+  }, [api]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function pagar(metodo: MetodoPagamento) {
     setErro(null)
     setProcessando(metodo)
@@ -230,17 +299,18 @@ export default function Totem() {
         cpf: cliente?.tipo === 'morador_cadastrado' ? null : cliente?.cpf ?? null,
         apartamento: cliente?.tipo === 'morador' ? apartamento.trim() || null : null,
       }
-      const r = await api.criarPagamento(carrinho.map((i) => ({ produto_id: i.produto.id, quantidade: i.qtd })), metodo, dadosCliente)
+      const itens = carrinho.map((i) => ({ produto_id: i.produto.id, quantidade: i.qtd }))
+      // mesma compra e forma de pagamento = mesma tentativa (resposta perdida, toque repetido)
+      const chave = JSON.stringify({ itens, metodo, c: dadosCliente })
+      if (tentativa.current?.chave !== chave) tentativa.current = { chave, id: crypto.randomUUID() }
+      const r = await api.criarPagamento(itens, metodo, dadosCliente, tentativa.current.id)
       setCompra(r)
       setPagamento(r.pagamento)
       setItensPagos(carrinho)
       setEtapa('aguardando')
-      desinscrever.current = api.acompanharPagamento(r.pagamento.id, (p) => {
-        setPagamento((atual) => ({ ...atual!, ...p }))
-        if (p.status === 'aprovado') setEtapa('aprovado')
-        else if (p.status !== 'pendente') setEtapa('falha')
-        setUltimoToque(Date.now())
-      })
+      // BUG-013: guarda a compra para retomar se o totem recarregar (sem o CPF)
+      compraPendente.gravar({ compra: r, pagamento: r.pagamento, itens: carrinho, cliente: cliente && { ...cliente, cpf: undefined }, apartamento })
+      acompanhar(r.pagamento.id)
     } catch (e) {
       if (ehErroDeRede(e)) {
         setSemInternet(true)
@@ -259,8 +329,11 @@ export default function Totem() {
     setErro(null)
     setVendaOffline({
       txid: novoTxidOffline(),
-      tipo_cliente: cliente?.tipo === 'visitante' ? 'visitante' : 'morador',
-      apartamento: cliente?.tipo === 'visitante' ? null : apartamento.trim() || null,
+      // BUG-002: morador identificado continua identificado (o servidor usa o cadastro)
+      tipo_cliente: cliente?.tipo ?? 'morador',
+      morador_id: cliente?.tipo === 'morador_cadastrado' ? cliente.morador?.id ?? null : null,
+      apartamento: cliente?.tipo === 'visitante' ? null
+        : cliente?.tipo === 'morador_cadastrado' ? cliente.morador?.apartamento ?? null : apartamento.trim() || null,
       cpf: cliente?.tipo === 'morador_cadastrado' ? null : cliente?.cpf ?? null,
       criado_em: new Date().toISOString(),
       total,
@@ -272,7 +345,15 @@ export default function Totem() {
   /** cliente confirmou que pagou: guarda a venda na fila e tenta enviar */
   function confirmarPixOffline() {
     if (!vendaOffline) return
-    filaOffline.adicionar({ ...vendaOffline, criado_em: new Date().toISOString() })
+    try {
+      filaOffline.adicionar({ ...vendaOffline, criado_em: new Date().toISOString() })
+    } catch (e) {
+      // BUG-006: não mostra "compra registrada" se ela não ficou guardada
+      console.error(e)
+      setErro('Não foi possível registrar esta compra no totem. Não saia ainda: mostre o comprovante do PIX para a administração.')
+      setUltimoToque(Date.now())
+      return
+    }
     setPendentesEnvio(filaOffline.ler().length)
     setItensPagos(carrinho)
     setEtapa('offline_ok')
@@ -287,22 +368,46 @@ export default function Totem() {
     if (etapa !== 'aguardando' || !pagamento || restanteMs > 0 || expirando.current) return
     expirando.current = true
     api.cancelarPagamento(pagamento.id, 'expirado')
-      .catch(() => {})
-      .finally(() => {
+      .catch(() => 'expirado' as const)
+      .then((status) => {
         expirando.current = false
-        setPagamento((p) => (p && p.status === 'pendente' ? { ...p, status: 'expirado', motivo_recusa: 'O tempo para pagamento acabou' } : p))
-        setEtapa((e) => (e === 'aguardando' ? 'falha' : e))
+        encerrouPagamento()
+        if (status === 'aprovado') {
+          // pago no último segundo: conclui a compra
+          setPagamento((p) => (p ? { ...p, status: 'aprovado' } : p))
+          setEtapa((e) => (e === 'aguardando' ? 'aprovado' : e))
+        } else {
+          setPagamento((p) => (p && p.status === 'pendente' ? { ...p, status: 'expirado', motivo_recusa: 'O tempo para pagamento acabou' } : p))
+          setEtapa((e) => (e === 'aguardando' ? 'falha' : e))
+        }
         setUltimoToque(Date.now())
       })
   }, [etapa, pagamento, restanteMs, api])
 
+  // BUG-005: só sai da tela depois da resposta; se o PIX foi pago no último instante,
+  // mostra a compra aprovada em vez de deixar o cliente pagar de novo
   async function cancelarPagamento() {
-    if (!pagamento) return
-    const id = pagamento.id
-    desinscrever.current?.()
-    desinscrever.current = null
-    setEtapa('pagamento')
-    await api.cancelarPagamento(id, 'cancelado').catch(() => {})
+    if (!pagamento || cancelando) return
+    setCancelando(true)
+    setErro(null)
+    try {
+      const status = await api.cancelarPagamento(pagamento.id, 'cancelado')
+      encerrouPagamento()
+      if (status === 'aprovado') {
+        setPagamento((p) => (p ? { ...p, status: 'aprovado' } : p))
+        setEtapa('aprovado')
+        return
+      }
+      desinscrever.current?.()
+      desinscrever.current = null
+      setEtapa('pagamento')
+    } catch (e) {
+      // não sabemos se cancelou: continua acompanhando o pagamento
+      setErro(ehErroDeRede(e) ? 'Sem conexão para cancelar agora. Se você já pagou, aguarde a confirmação.' : (e as Error).message)
+    } finally {
+      setCancelando(false)
+      setUltimoToque(Date.now())
+    }
   }
 
   // saída do modo totem: segurar o logo por 3 s
@@ -485,7 +590,7 @@ export default function Totem() {
 
       {etapa === 'aguardando' && pagamento && compra && (
         <TelaAguardando pagamento={pagamento} total={compra.venda.total} restanteMs={Math.max(0, restanteMs)}
-          aoCancelar={cancelarPagamento} aoSimular={(r) => api.simularPagamento(pagamento.id, r).catch((e) => setErro(String(e.message)))} />
+          aoCancelar={cancelarPagamento} cancelando={cancelando} aoSimular={(r) => api.simularPagamento(pagamento.id, r).catch((e) => setErro(String(e.message)))} />
       )}
 
       {etapa === 'aprovado' && compra && pagamento && (
@@ -1168,8 +1273,8 @@ function TelaOfflineOk({ venda, ocioso, aoConcluir }: { venda: VendaOffline; oci
   )
 }
 
-function TelaAguardando({ pagamento, total, restanteMs, aoCancelar, aoSimular }: {
-  pagamento: Pagamento; total: number; restanteMs: number; aoCancelar: () => void; aoSimular: (r: 'aprovado' | 'recusado') => Promise<unknown>
+function TelaAguardando({ pagamento, total, restanteMs, aoCancelar, cancelando, aoSimular }: {
+  pagamento: Pagamento; total: number; restanteMs: number; aoCancelar: () => void; cancelando: boolean; aoSimular: (r: 'aprovado' | 'recusado') => Promise<unknown>
 }) {
   const [copiado, setCopiado] = useState(false)
   const [simulando, setSimulando] = useState(false)
@@ -1235,8 +1340,9 @@ function TelaAguardando({ pagamento, total, restanteMs, aoCancelar, aoSimular }:
         </div>
       )}
 
-      <button onClick={aoCancelar} className="mt-8 h-16 rounded-2xl px-10 text-xl font-medium text-slate-600 ring-2 ring-slate-200 active:bg-slate-100">
-        Cancelar e escolher outra forma
+      <button onClick={aoCancelar} disabled={cancelando} className="mt-8 flex h-16 items-center gap-3 rounded-2xl px-10 text-xl font-medium text-slate-600 ring-2 ring-slate-200 active:bg-slate-100 disabled:opacity-60">
+        {cancelando && <CarrinhoAnimado className="h-7 w-auto text-marca-escura" rotulo="Cancelando" />}
+        {cancelando ? 'Cancelando…' : 'Cancelar e escolher outra forma'}
       </button>
     </div>
   )

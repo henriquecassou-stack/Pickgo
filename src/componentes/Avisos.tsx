@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, CalendarClock, CalendarX, CheckCheck, PackagePlus, PackageX, StarOff, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { BadgeAlert, Bell, CalendarClock, CalendarX, CheckCheck, CircleDollarSign, PackagePlus, PackageX, StarOff, TriangleAlert, Undo2, WifiOff, type LucideIcon } from 'lucide-react'
 import { useApi } from '../lib/sessao'
 import type { Aviso, GravidadeAviso, TipoAviso } from '../lib/tipos'
 import { tempoRelativo } from '../lib/formato'
@@ -16,6 +16,10 @@ export const VISUAL_AVISO: Record<TipoAviso, { icone: LucideIcon; rotulo: string
   produto_vencido: { icone: CalendarX, rotulo: 'Produto vencido' },
   avaliacao_baixa: { icone: StarOff, rotulo: 'Avaliação ruim' },
   sugestao_produto: { icone: PackagePlus, rotulo: 'Sugestão de produto' },
+  venda_offline: { icone: WifiOff, rotulo: 'PIX sem internet a conferir' },
+  venda_offline_rejeitada: { icone: BadgeAlert, rotulo: 'Compra sem internet não registrada' },
+  preco_divergente: { icone: CircleDollarSign, rotulo: 'Preço diferente do catálogo' },
+  estorno: { icone: Undo2, rotulo: 'Estorno / contestação' },
 }
 
 export const COR_GRAVIDADE: Record<GravidadeAviso, string> = {

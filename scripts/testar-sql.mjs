@@ -296,6 +296,70 @@ await como(admin, async () => {
   })
 }
 
+// --- correções da auditoria (P1) ---
+{
+  const agua = await um(`select id, preco_venda::float p from produtos where nome like 'Água%'`)
+  const choco = await um(`select id from produtos where nome like 'Chocolate%'`)
+  const morador = await um(`select id, apartamento, bloco from moradores where ativo order by apartamento limit 1`)
+  const agoraIso = new Date().toISOString()
+
+  // BUG-002: morador cadastrado compra sem internet (sem CPF)
+  await como(totem, async () => {
+    const r = await um(`select registrar_venda_offline($1::jsonb) r`, [JSON.stringify({ txid: 'AUDMORADOR01', tipo_cliente: 'morador_cadastrado', morador_id: morador.id,
+      criado_em: agoraIso, itens: [{ produto_id: agua.id, quantidade: 1, preco_unitario: agua.p }] })])
+    ok(!!r.r.numero, 'BUG-002: venda offline de morador cadastrado (sem CPF) é aceita')
+    await esperaErro(`select registrar_venda_offline('${JSON.stringify({ txid: 'AUDMORADOR02', tipo_cliente: 'morador_cadastrado', morador_id: '00000000-0000-0000-0000-000000000000', itens: [{ produto_id: agua.id, quantidade: 1, preco_unitario: agua.p }] })}'::jsonb)`,
+      'Cadastro do morador não encontrado', 'BUG-002: morador inexistente é recusado')
+  })
+  const vm = await um(`select morador_id, apartamento, cpf_cliente, tipo_cliente from vendas where txid = 'AUDMORADOR01'`)
+  const aptoEsperado = morador.bloco ? `${morador.apartamento} ${morador.bloco}` : morador.apartamento
+  ok(vm.morador_id === morador.id && vm.apartamento === aptoEsperado && vm.cpf_cliente === null && vm.tipo_cliente === 'morador_cadastrado',
+    `BUG-002: venda guarda o morador e o apartamento do cadastro (${vm.apartamento})`)
+
+  // BUG-007: preço diferente do catálogo fica marcado e gera aviso urgente; preço de promoção vale
+  await como(totem, async () => {
+    await um(`select registrar_venda_offline($1::jsonb) r`, [JSON.stringify({ txid: 'AUDPRECO0001', tipo_cliente: 'visitante', cpf: '52998224725', criado_em: agoraIso,
+      itens: [{ produto_id: agua.id, quantidade: 1, preco_unitario: 0.01 }] })])
+    await um(`select registrar_venda_offline($1::jsonb) r`, [JSON.stringify({ txid: 'AUDPRECO0002', tipo_cliente: 'visitante', cpf: '52998224725', criado_em: agoraIso,
+      itens: [{ produto_id: choco.id, quantidade: 1, preco_unitario: 6.99 }] })])
+  })
+  const p1 = await um(`select v.preco_divergente d, (select count(*)::int from avisos a where a.tipo = 'preco_divergente' and a.referencia_id = v.id::text) avisos from vendas v where txid = 'AUDPRECO0001'`)
+  ok(p1.d === true && p1.avisos === 1, 'BUG-007: preço de R$ 0,01 fica marcado como divergente e gera aviso urgente')
+  ok((await um(`select preco_divergente d from vendas where txid = 'AUDPRECO0002'`)).d === false, 'BUG-007: preço de promoção do dia é aceito sem marcar')
+
+  // BUG-006: venda recusada/fila corrompida fica guardada para o admin, sem duplicar
+  await como(totem, async () => {
+    const payload = JSON.stringify({ txid: 'AUDREJEITA01', total: 12.5, itens: [] })
+    await um(`select registrar_rejeicao_offline($1::jsonb, 'CPF do cliente inválido')`, [payload])
+    await um(`select registrar_rejeicao_offline($1::jsonb, 'CPF do cliente inválido')`, [payload])
+    ok((await um(`select count(*)::int n from vendas_offline_rejeitadas`)).n === 0, 'BUG-006: totem não enxerga as vendas rejeitadas guardadas')
+  })
+  const rej = await um(`select (select count(*)::int from vendas_offline_rejeitadas where txid = 'AUDREJEITA01') n, (select count(*)::int from avisos where tipo = 'venda_offline_rejeitada') a`)
+  ok(rej.n === 1 && rej.a === 1, 'BUG-006: venda offline recusada fica guardada uma vez e gera aviso urgente')
+
+  // BUG-004: a mesma tentativa não gera duas cobranças
+  const vt = await um(`insert into vendas (metodo, total, custo_total, totem_id) values ('pix', 3, 1, '${totem}') returning id`)
+  await db.query(`insert into pagamentos (venda_id, totem_id, metodo, valor, tentativa_id) values ($1, $2, 'pix', 3, 'aaaaaaaa-0000-4000-8000-000000000001')`, [vt.id, totem])
+  await esperaErro(`insert into pagamentos (venda_id, totem_id, metodo, valor, tentativa_id) values ('${vt.id}', '${totem}', 'pix', 3, 'aaaaaaaa-0000-4000-8000-000000000001')`,
+    'duplicate key', 'BUG-004: segunda cobrança com a mesma tentativa é recusada pelo banco')
+
+  // BUG-008: estorno tira a venda do faturamento, gera aviso e é idempotente
+  const pago = await um(`select p.id, p.venda_id, v.total::float total from pagamentos p join vendas v on v.id = p.venda_id where v.txid = 'AUDPRECO0002'`)
+  const fat = async () => (await como(admin, () => um(`select (dashboard_resumo(current_date, current_date) ->> 'faturamento_hoje')::float f`))).f
+  const antes = await fat()
+  await como(totem, async () => {
+    await esperaErro(`select registrar_estorno('${pago.id}', 'estornado')`, 'permission denied', 'BUG-008: totem não consegue registrar estorno')
+  })
+  ok((await um(`select registrar_estorno($1, 'estornado') r`, [pago.id])).r === true, 'BUG-008: estorno registrado pelo backend')
+  ok((await um(`select registrar_estorno($1, 'estornado') r`, [pago.id])).r === false, 'BUG-008: estorno repetido é ignorado')
+  const e = await um(`select v.status vs, p.status ps, (select count(*)::int from avisos a where a.tipo = 'estorno' and a.referencia_id = v.id::text) avisos
+    from vendas v join pagamentos p on p.venda_id = v.id where v.id = $1`, [pago.venda_id])
+  ok(e.vs === 'estornada' && e.ps === 'estornado' && e.avisos === 1, 'BUG-008: venda estornada, pagamento estornado e aviso ao administrador')
+  const depois = await fat()
+  ok(Math.abs(antes - depois - pago.total) < 0.01, `BUG-008: estorno sai do faturamento (R$ ${antes} → R$ ${depois})`)
+  ok((await um(`select registrar_estorno(p.id, 'contestado') r from pagamentos p where p.status = 'pendente' limit 1`))?.r !== true, 'BUG-008: pagamento não aprovado não vira estorno')
+}
+
 // --- fluxo de pagamento (como o backend faria) ---
 const venda = await um(`insert into vendas (metodo, total, custo_total, totem_id) values ('pix', 11.00, 5.20, '${totem}') returning id`)
 await db.exec(`insert into itens_venda (venda_id, produto_id, nome_produto, quantidade, preco_unitario, custo_unitario)

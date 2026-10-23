@@ -106,8 +106,8 @@ export interface FiltroMovimentacoes {
 }
 
 export type MetodoPagamento = 'pix' | 'cartao_credito' | 'cartao_debito'
-export type StatusVenda = 'aguardando_pagamento' | 'paga' | 'recusada' | 'expirada' | 'cancelada'
-export type StatusPagamento = 'pendente' | 'aprovado' | 'recusado' | 'expirado' | 'cancelado'
+export type StatusVenda = 'aguardando_pagamento' | 'paga' | 'recusada' | 'expirada' | 'cancelada' | 'estornada'
+export type StatusPagamento = 'pendente' | 'aprovado' | 'recusado' | 'expirado' | 'cancelado' | 'estornado' | 'contestado'
 
 export interface ItemVenda {
   produto_id: string
@@ -318,6 +318,7 @@ export interface ResumoAvaliacoes {
 export interface SugestaoProduto { sugestao: string; pedidos: number; ultima: string }
 
 export type TipoAviso = 'estoque_baixo' | 'estoque_zerado' | 'validade_proxima' | 'produto_vencido' | 'avaliacao_baixa' | 'sugestao_produto'
+  | 'venda_offline' | 'estorno' | 'venda_offline_rejeitada' | 'preco_divergente'
 export type GravidadeAviso = 'info' | 'atencao' | 'critico'
 
 export interface Aviso {
@@ -366,6 +367,8 @@ export interface PixTotem { chave: string; nome: string; cidade: string }
 export interface VendaOffline {
   txid: string
   tipo_cliente: TipoCliente
+  /** morador identificado (apartamento + PIN) antes da queda da internet */
+  morador_id?: string | null
   apartamento: string | null
   cpf: string | null
   criado_em: string

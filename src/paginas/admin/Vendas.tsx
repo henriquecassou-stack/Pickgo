@@ -9,7 +9,7 @@ import { Botao, CabecalhoPagina, Carregando, Cartao, cx, Etiqueta, Rotulo, Vazio
 import { CampoData } from '../../componentes/CampoData'
 
 const TOM_STATUS: Record<StatusVenda, 'verde' | 'amarelo' | 'vermelho' | 'neutro'> = {
-  paga: 'verde', aguardando_pagamento: 'amarelo', recusada: 'vermelho', expirada: 'neutro', cancelada: 'neutro',
+  paga: 'verde', aguardando_pagamento: 'amarelo', recusada: 'vermelho', expirada: 'neutro', cancelada: 'neutro', estornada: 'vermelho',
 }
 
 const COLUNAS: Coluna<Venda>[] = [

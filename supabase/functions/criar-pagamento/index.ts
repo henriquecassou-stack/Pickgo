@@ -12,7 +12,12 @@ interface Entrada {
   cliente?: 'visitante' | 'morador' | 'morador_cadastrado'
   morador_id?: string | null
   cpf?: string | null // obrigatório para visitante e morador sem cadastro
+  /** id da tentativa gerado no totem: reenviar a mesma tentativa devolve a mesma cobrança */
+  tentativa_id?: string | null
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const CAMPOS_PAGAMENTO = 'id, status, provedor, metodo, valor, qr_code, qr_code_base64, checkout_url, expira_em'
 
 const EXPIRACAO_MS = 5 * 60_000
 
@@ -31,6 +36,19 @@ Deno.serve(async (req) => {
     return erro('JSON inválido')
   }
   if (!['pix', 'cartao_credito', 'cartao_debito'].includes(entrada.metodo)) return erro('Forma de pagamento inválida')
+  const tentativa = entrada.tentativa_id && UUID.test(entrada.tentativa_id) ? entrada.tentativa_id.toLowerCase() : null
+
+  // reenvio da mesma tentativa (resposta perdida, toque duplo): devolve a cobrança já criada
+  async function existente() {
+    if (!tentativa) return null
+    const { data } = await db.from('pagamentos').select(`${CAMPOS_PAGAMENTO}, totem_id, vendas(id, numero, total)`).eq('tentativa_id', tentativa).maybeSingle()
+    if (!data || (usuario!.perfil !== 'admin' && data.totem_id !== usuario!.id)) return null
+    const { vendas: venda, totem_id: _t, ...pag } = data as typeof data & { vendas: { id: string; numero: number; total: number } }
+    const modo = pag.metodo === 'pix' ? 'pix' : pag.checkout_url ? 'checkout' : 'maquininha'
+    return json({ venda, pagamento: { ...pag, modo }, repetida: true })
+  }
+  const jaCriada = await existente()
+  if (jaCriada) return jaCriada
   if (!Array.isArray(entrada.itens) || entrada.itens.length === 0 || entrada.itens.length > 50) return erro('Carrinho vazio ou grande demais')
 
   // agrupa itens repetidos e valida quantidades
@@ -92,16 +110,24 @@ Deno.serve(async (req) => {
   if (errVenda) return erro(errVenda.message, 500)
 
   const { error: errItens } = await db.from('itens_venda').insert(itens.map((i) => ({ ...i, venda_id: venda.id })))
-  if (errItens) return erro(errItens.message, 500)
+  if (errItens) {
+    await db.from('vendas').delete().eq('id', venda.id) // não deixa venda sem itens
+    return erro(errItens.message, 500)
+  }
 
   const provedor = provedorAtivo()
   const expiraEm = new Date(Date.now() + EXPIRACAO_MS)
   const { data: pagamento, error: errPag } = await db
     .from('pagamentos')
-    .insert({ venda_id: venda.id, totem_id: usuario.id, provedor, metodo: entrada.metodo, valor: total, expira_em: expiraEm.toISOString() })
+    .insert({ venda_id: venda.id, totem_id: usuario.id, provedor, metodo: entrada.metodo, valor: total, expira_em: expiraEm.toISOString(), tentativa_id: tentativa })
     .select('id')
     .single()
-  if (errPag) return erro(errPag.message, 500)
+  if (errPag) {
+    await db.from('vendas').delete().eq('id', venda.id) // itens vão junto (cascade)
+    // duas requisições da mesma tentativa ao mesmo tempo: a outra ganhou, devolve a dela
+    if (errPag.code === '23505') return (await existente()) ?? erro('Tentativa de pagamento repetida', 409)
+    return erro(errPag.message, 500)
+  }
 
   const descricao = `pickgo — compra #${venda.numero}`
   let atualizacao: Record<string, unknown> = {}
@@ -141,7 +167,7 @@ Deno.serve(async (req) => {
     .from('pagamentos')
     .update({ ...atualizacao, atualizado_em: new Date().toISOString() })
     .eq('id', pagamento.id)
-    .select('id, status, provedor, metodo, valor, qr_code, qr_code_base64, checkout_url, expira_em')
+    .select(CAMPOS_PAGAMENTO)
     .single()
   if (errUpd) return erro(errUpd.message, 500)
 

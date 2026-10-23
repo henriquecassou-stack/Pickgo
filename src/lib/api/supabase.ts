@@ -1,6 +1,6 @@
 import { createClient, FunctionsHttpError, type PostgrestError } from '@supabase/supabase-js'
 import type { Api } from './contrato'
-import type { Movimentacao, Pagamento, Usuario } from '../tipos'
+import type { Movimentacao, Pagamento, StatusPagamento, Usuario } from '../tipos'
 import { fimDoDia, inicioDoDia } from '../formato'
 import { resultadoIdentificacao } from './moradores'
 import { ehErroDeRede } from '../offline'
@@ -178,12 +178,18 @@ export function criarApiSupabase(url: string, chaveAnon: string): Api {
     async conferirVendaOffline(vendaId, recebido) {
       ok(await sb.rpc('conferir_venda_offline', { p_venda_id: vendaId, p_recebido: recebido }))
     },
+    async registrarRejeicaoOffline(dados, erro) {
+      ok(await sb.rpc('registrar_rejeicao_offline', { p: dados, p_erro: erro }))
+    },
 
     async catalogo() {
       return ok(await sb.from('catalogo_totem').select('*').order('categoria_ordem').order('nome'))
     },
-    criarPagamento(itens, metodo, cliente) {
-      return funcao('criar-pagamento', { itens, metodo, cliente: cliente.tipo, morador_id: cliente.morador_id ?? null, apartamento: cliente.apartamento ?? null, cpf: cliente.cpf ?? null })
+    criarPagamento(itens, metodo, cliente, tentativaId) {
+      return funcao('criar-pagamento', { itens, metodo, cliente: cliente.tipo, morador_id: cliente.morador_id ?? null, apartamento: cliente.apartamento ?? null, cpf: cliente.cpf ?? null, tentativa_id: tentativaId ?? null })
+    },
+    async lerPagamento(id) {
+      return ok(await sb.from('pagamentos').select('*').eq('id', id).maybeSingle()) as Pagamento | null
     },
     acompanharPagamento(id, cb) {
       let ultimo = ''
@@ -207,7 +213,8 @@ export function criarApiSupabase(url: string, chaveAnon: string): Api {
       }
     },
     async cancelarPagamento(id, motivo) {
-      await funcao('cancelar-pagamento', { pagamento_id: id, motivo })
+      const r = await funcao<{ status: StatusPagamento }>('cancelar-pagamento', { pagamento_id: id, motivo })
+      return r?.status ?? (motivo === 'expirado' ? 'expirado' : 'cancelado')
     },
     async simularPagamento(id, resultado) {
       await funcao('simular-pagamento', { pagamento_id: id, resultado })

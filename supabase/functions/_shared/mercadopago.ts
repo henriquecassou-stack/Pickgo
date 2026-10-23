@@ -81,6 +81,13 @@ export function cancelarIntencaoPoint(intentId: string) {
   return mp(`/point/integration-api/devices/${device}/payment-intents/${intentId}`, { method: 'DELETE' })
 }
 
+export interface IntencaoPoint { id: string; state: string; additional_info?: { external_reference?: string } }
+
+/** Estado real de uma intenção da maquininha (o webhook não confia no corpo da notificação). */
+export function buscarIntencaoPoint(intentId: string) {
+  return mp<IntencaoPoint>(`/point/integration-api/payment-intents/${encodeURIComponent(intentId)}`)
+}
+
 /** Sem maquininha: checkout do Mercado Pago aberto pelo celular do morador via QR. */
 export async function criarCheckout(p: { pagamentoId: string; valor: number; descricao: string; tipo: 'credit_card' | 'debit_card'; expiraEm: Date }) {
   const pref = await mp<{ id: string; init_point: string; sandbox_init_point: string }>('/checkout/preferences', {
@@ -129,5 +136,9 @@ export async function assinaturaValida(req: Request, dataId: string) {
   const chave = await crypto.subtle.importKey('raw', new TextEncoder().encode(segredo), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const mac = await crypto.subtle.sign('HMAC', chave, new TextEncoder().encode(manifesto))
   const hex = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, '0')).join('')
-  return hex === partes.v1
+  // comparação em tempo constante
+  if (hex.length !== partes.v1.length) return false
+  let dif = 0
+  for (let i = 0; i < hex.length; i++) dif |= hex.charCodeAt(i) ^ partes.v1.charCodeAt(i)
+  return dif === 0
 }

@@ -290,12 +290,24 @@ export function criarApiDemo(aoProgresso?: (msg: string) => void): Api {
     async conferirVendaOffline(vendaId, recebido) {
       await exec(`select conferir_venda_offline($1, $2)`, [vendaId, recebido])
     },
+    async registrarRejeicaoOffline(dados, erro) {
+      await exec(`select registrar_rejeicao_offline($1::jsonb, $2)`, [JSON.stringify(dados), erro])
+    },
 
     catalogo: () => linhas(`select * from catalogo_totem order by categoria_ordem, nome`),
-    async criarPagamento(itens, metodo, cliente) {
+    async criarPagamento(itens, metodo, cliente, tentativaId) {
       exigirRede()
       const pg = await banco()
       const r = await pg.transaction(async (tx) => {
+        // mesma regra da Edge Function: reenvio da mesma tentativa devolve a cobrança já criada
+        if (tentativaId) {
+          const ja = (await tx.query<Pagamento & { venda_id: string; numero: number; total_venda: number }>(
+            `select p.*, v.numero, v.total as total_venda from pagamentos p join vendas v on v.id = p.venda_id where p.tentativa_id = $1`, [tentativaId])).rows[0]
+          if (ja) {
+            const { numero, total_venda, ...pag } = ja
+            return { venda: { id: pag.venda_id, numero, total: total_venda }, pagamento: { ...pag, modo: pag.metodo === 'pix' ? 'pix' : 'maquininha' } as Pagamento }
+          }
+        }
         await tx.query(`select expirar_pagamentos_vencidos()`)
         const ids = itens.map((i) => i.produto_id)
         const prods = (await tx.query<{ id: string; nome: string; preco_venda: number; preco_custo: number }>(
@@ -327,9 +339,9 @@ export function criarApiDemo(aoProgresso?: (msg: string) => void): Api {
             [venda.id, p.id, p.nome, qtd(p.id), p.preco_venda, p.preco_custo])
         }
         const pagamento = (await tx.query<Pagamento>(
-          `insert into pagamentos (venda_id, totem_id, provedor, metodo, valor, expira_em, id_externo)
-           values ($1, $2, 'simulado', $3, $4, now() + interval '5 minutes', 'SIM-' || substr(md5(random()::text), 1, 8)) returning *`,
-          [venda.id, usuario?.id, metodo, total])).rows[0]
+          `insert into pagamentos (venda_id, totem_id, provedor, metodo, valor, expira_em, id_externo, tentativa_id)
+           values ($1, $2, 'simulado', $3, $4, now() + interval '5 minutes', 'SIM-' || substr(md5(random()::text), 1, 8), $5) returning *`,
+          [venda.id, usuario?.id, metodo, total, tentativaId ?? null])).rows[0]
         if (metodo === 'pix') {
           pagamento.qr_code = `SANDBOX-PIX|${pagamento.id}|R$ ${total.toFixed(2)}`
           await tx.query(`update pagamentos set qr_code = $2 where id = $1`, [pagamento.id, pagamento.qr_code])
@@ -339,6 +351,7 @@ export function criarApiDemo(aoProgresso?: (msg: string) => void): Api {
       salvarDepois()
       return r
     },
+    lerPagamento: async (id) => (await lerPagamento(id)) ?? null,
     acompanharPagamento(id, cb) {
       if (!ouvintesPagamento.has(id)) ouvintesPagamento.set(id, new Set())
       ouvintesPagamento.get(id)!.add(cb)
@@ -347,6 +360,8 @@ export function criarApiDemo(aoProgresso?: (msg: string) => void): Api {
     async cancelarPagamento(id, motivo) {
       await exec(`select encerrar_pagamento($1, $2::status_pagamento, $3)`, [id, motivo, motivo === 'expirado' ? 'QR Code expirado' : 'Cancelado pelo morador'])
       await notificarPagamento(id)
+      // como no servidor: se já estava aprovado, o cancelamento não muda nada e devolve 'aprovado'
+      return (await lerPagamento(id)).status
     },
     async simularPagamento(id, resultado) {
       await new Promise((r) => setTimeout(r, 1200))
