@@ -433,8 +433,22 @@ export default function Totem() {
   }, [catalogo])
 
   const visiveis = useMemo(() => {
-    const t = busca.trim().toLowerCase()
-    return catalogo.filter((p) => (!categoria || p.categoria_id === categoria) && (!t || p.nome.toLowerCase().includes(t)))
+    // busca a cada letra, sem diferenciar maiúscula nem acento ("agua" acha "Água");
+    // cada palavra digitada precisa aparecer no nome; quem começa com o texto vem primeiro
+    const termos = normalizarBusca(busca).split(/\s+/).filter(Boolean)
+    const daCategoria = catalogo.filter((p) => !categoria || p.categoria_id === categoria)
+    if (!termos.length) return daCategoria
+    const pontos = (p: ItemCatalogo) => {
+      const nome = normalizarBusca(p.nome)
+      if (!termos.every((t) => nome.includes(t))) return -1
+      if (nome.startsWith(termos[0])) return 2
+      return nome.split(/\s+/).some((pal) => pal.startsWith(termos[0])) ? 1 : 0
+    }
+    return daCategoria
+      .map((p) => ({ p, n: pontos(p) }))
+      .filter((x) => x.n >= 0)
+      .sort((a, b) => b.n - a.n || a.p.nome.localeCompare(b.p.nome, 'pt-BR'))
+      .map((x) => x.p)
   }, [catalogo, categoria, busca])
 
   return (
@@ -649,6 +663,9 @@ export default function Totem() {
 }
 
 // ---------------------------------------------------------------------------
+
+/** minúsculas e sem acento, para a busca ("Água" → "agua") */
+const normalizarBusca = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
 /** produto com promoção vigente (catálogo antigo guardado sem preco_original conta como sem promoção) */
 const emPromocao = (p: ItemCatalogo) => !!p.promocao && p.preco_original > p.preco_venda
