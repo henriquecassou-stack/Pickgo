@@ -333,7 +333,7 @@ export default function Totem() {
   }, [catalogo, categoria, busca])
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-creme text-marca-escura select-none">
+    <div className="totem-raiz flex h-dvh flex-col overflow-hidden bg-creme text-marca-escura select-none">
       {(semInternet || pendentesEnvio > 0) && (
         <div className={cx('flex shrink-0 items-center justify-center gap-3 px-4 py-3 text-center text-lg font-medium text-white',
           semInternet ? 'bg-marca' : 'bg-emerald-800')} role="status">

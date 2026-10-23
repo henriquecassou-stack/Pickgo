@@ -71,6 +71,11 @@
 
 @layer base {
   html { -webkit-tap-highlight-color: transparent; }
+  /* sem "puxar para recarregar" e sem o quique da página no topo/fim (Safari do iPad,
+     Chrome do Android): o totem não recarrega sem querer quando o cliente rola a tela */
+  html, body { overscroll-behavior: none; }
+  /* áreas roláveis do totem não "vazam" a rolagem para a página (é isso que dispara o recarregar) */
+  .totem-raiz, .totem-raiz * { overscroll-behavior: contain; }
   body { @apply bg-slate-50 text-slate-800 antialiased; }
   input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
   :focus-visible { @apply outline-2 outline-offset-2 outline-emerald-500; }
