@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   ArrowLeft, BadgeCheck, Building2, PackagePlus, UserPlus, Camera, ChevronRight, CircleCheck, Delete, Eye, EyeOff, IdCard, CircleX, Clock, Copy, CreditCard, Hourglass, House, Loader, Mail, Minus, Plus,
-  QrCode, ScanBarcode, Search, ShoppingCart, Smartphone, Star, Trash2, UserRound, Wallet, WalletCards, Wifi, WifiOff, X,
+  QrCode, Search, ShoppingCart, Smartphone, Star, Trash2, UserRound, WalletCards, Wifi, WifiOff, X,
 } from 'lucide-react'
 import { useSessao } from '../../lib/sessao'
 import type { ClienteVenda, ItemCatalogo, MetodoPagamento, MoradorIdentificado, Pagamento, PixTotem, ResultadoCriarPagamento, TipoCliente, VendaOffline } from '../../lib/tipos'
@@ -569,20 +569,27 @@ function TelaInicio({ aoMorador, aoVisitante, segurarLogo, demo, semInternet, ao
           Pegue o produto, registre aqui e pague com PIX ou cartão.
         </p>
 
-        <div className={cx('mt-10 grid w-full max-w-3xl gap-4 text-left sm:grid-cols-3', `${baixo}:mt-6 ${baixo}:gap-3`)}>
-          {[
-            { i: <UserRound className="size-10" strokeWidth={1.8} />, t: 'Identifique-se', d: 'morador ou visitante' },
-            { i: <ScanBarcode className="size-10" strokeWidth={1.8} />, t: 'Bipe os produtos', d: 'no leitor ou na câmera' },
-            { i: <Wallet className="size-10" strokeWidth={1.8} />, t: 'Pague', d: 'PIX, crédito ou débito' },
-          ].map((x, n) => (
-            <div key={n} className={cx('flex items-center gap-4 rounded-3xl bg-cartao p-6 text-marca-escura sm:flex-col sm:items-start sm:gap-3', `${baixo}:p-4`)}>
-              {x.i}
-              <div>
-                <p className="text-2xl font-bold">{x.t}</p>
-                <p className="text-lg text-marca-escura/75">{x.d}</p>
-              </div>
-            </div>
-          ))}
+        {/* passos numerados, sem caixa: é instrução, não botão (os únicos botões são morador/visitante) */}
+        <div className={cx('mt-10 w-full max-w-4xl', `${baixo}:mt-6`)}>
+          <p className="text-sm font-semibold tracking-[0.2em] text-texto-suave uppercase">Como funciona</p>
+          <ol className="mt-4 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-center sm:gap-3">
+            {[
+              { t: 'Identifique-se', d: 'morador ou visitante' },
+              { t: 'Bipe os produtos', d: 'no leitor ou na câmera' },
+              { t: 'Pague', d: 'PIX, crédito ou débito' },
+            ].map((x, n) => (
+              <Fragment key={n}>
+                {n > 0 && <ChevronRight aria-hidden="true" className="hidden size-7 shrink-0 text-folha sm:block" />}
+                <li className="flex items-center gap-3 text-left text-marca-escura">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full border-2 border-folha text-xl font-bold text-marca">{n + 1}</span>
+                  <span>
+                    <span className="block text-xl leading-tight font-bold">{x.t}</span>
+                    <span className="block text-base text-marca-escura/70">{x.d}</span>
+                  </span>
+                </li>
+              </Fragment>
+            ))}
+          </ol>
         </div>
 
         <p className={cx('mt-10 text-3xl font-bold text-marca-escura', `${baixo}:mt-6 ${baixo}:text-2xl`)}>Para começar, toque em uma opção</p>
